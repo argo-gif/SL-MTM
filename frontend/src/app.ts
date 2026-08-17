@@ -17,8 +17,10 @@ class DashboardApp {
     metric_type: 'idr'
   };
   private activeParetoDimension: string = 'alasan';
+  private isParetoUnfulfill: boolean = true;
 
   constructor() {
+
     this.authController = new AuthController();
     this.initDOM();
     this.setupCustomSelectListeners();
@@ -164,6 +166,26 @@ class DashboardApp {
       this.refreshDashboardData();
     });
 
+    // Pareto Switcher Mode (Unfulfill vs All)
+    const btnParetoUnfulfill = document.getElementById('btnParetoUnfulfill');
+    const btnParetoAll = document.getElementById('btnParetoAll');
+
+    btnParetoUnfulfill?.addEventListener('click', () => {
+      btnParetoUnfulfill.classList.add('active');
+      btnParetoAll?.classList.remove('active');
+      this.isParetoUnfulfill = true;
+      this.fetchParetoData();
+      this.fetchGridData();
+    });
+
+    btnParetoAll?.addEventListener('click', () => {
+      btnParetoAll.classList.add('active');
+      btnParetoUnfulfill?.classList.remove('active');
+      this.isParetoUnfulfill = false;
+      this.fetchParetoData();
+      this.fetchGridData();
+    });
+
     // Pareto Tabs
     const tabs = document.querySelectorAll('.pareto-tab');
     tabs.forEach(t => {
@@ -173,8 +195,11 @@ class DashboardApp {
         target.classList.add('active');
         this.activeParetoDimension = target.getAttribute('data-dim') || 'alasan';
         this.fetchParetoData();
+        this.fetchGridData();
       });
     });
+
+
 
     // PPT Export Modal
     const exportModal = document.getElementById('exportModal');
@@ -688,6 +713,24 @@ class DashboardApp {
     }
   }
 
+  private formatMonthLabel(monthStr: string): string {
+    if (!monthStr || monthStr === 'Semua Bulan' || monthStr === 'ALL') return monthStr;
+    const parts = String(monthStr).trim().split('-');
+    if (parts.length === 2) {
+      const yr = parts[0];
+      const mo = parts[1];
+      const monthMap: Record<string, string> = {
+        '01': 'JAN', '02': 'FEB', '03': 'MAR', '04': 'APR',
+        '05': 'MEI', '06': 'JUN', '07': 'JUL', '08': 'AGU',
+        '09': 'SEP', '10': 'OKT', '11': 'NOV', '12': 'DES'
+      };
+      if (monthMap[mo]) {
+        return `${monthMap[mo]}-${yr}`;
+      }
+    }
+    return monthStr;
+  }
+
   private renderMonthlyTrendChart(trendList: any[], metricKey: string): void {
     const container = document.getElementById('trendChartBars');
     if (!container) return;
@@ -697,36 +740,66 @@ class DashboardApp {
       return;
     }
 
+    const metricType = this.activeFilters.metric_type || 'idr';
     container.innerHTML = '';
+
     trendList.forEach(item => {
       const val = item[metricKey] || 0;
-      const heightPct = Math.min(100, Math.max(10, val));
+      const heightPct = Math.min(100, Math.max(12, val));
       const isAboveTarget = val >= 85.0;
 
       const barWrap = document.createElement('div');
       barWrap.style.flex = '1';
+      barWrap.style.minWidth = '132px';
       barWrap.style.display = 'flex';
       barWrap.style.flexDirection = 'column';
       barWrap.style.alignItems = 'center';
       barWrap.style.justifyContent = 'flex-end';
       barWrap.style.height = '100%';
 
+      const barBg = isAboveTarget
+        ? 'linear-gradient(180deg, #10B981 0%, #047857 100%)'
+        : 'linear-gradient(180deg, #EF4444 0%, #991B1B 100%)';
+      const textColor = isAboveTarget ? '#4ADE80' : '#FCA5A5';
+
+      const strP = this.formatMetricVal(item.total_p, metricType);
+      const strK = this.formatMetricVal(item.total_k, metricType);
+      const strR = this.formatMetricVal(item.total_r, metricType);
+
+      const isSLKirim = (metricKey === 'sl_kirim');
+
       barWrap.innerHTML = `
-        <div style="font-size: 0.75rem; font-weight: 700; color: ${isAboveTarget ? '#4ADE80' : '#FF4D4D'}; margin-bottom: 0.35rem;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: ${textColor}; margin-bottom: 0.25rem;">
           ${val.toFixed(1)}%
         </div>
-        <div style="width: 60%; max-width: 45px; height: ${heightPct}%; background: ${isAboveTarget ? 'linear-gradient(180deg, #C00000 0%, #8B0000 100%)' : '#FF4D4D'}; border-radius: 4px 4px 0 0; transition: height 0.3s ease;"></div>
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">${item.month}</div>
+        <div style="width: 50%; max-width: 44px; height: ${heightPct * 1.1}px; background: ${barBg}; border-radius: 6px 6px 0 0; transition: height 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4);"></div>
+        <div style="font-size: 0.78rem; font-weight: 700; color: white; margin-top: 0.35rem; margin-bottom: 0.25rem;">${this.formatMonthLabel(item.month)}</div>
+        
+        <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 0.35rem 0.45rem; width: 100%; font-size: 0.67rem; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
+          <div style="display:flex; justify-content:space-between; align-items:center; color:#94A3B8; white-space:nowrap;">
+            <span>📋 Pesan:</span>
+            <strong style="color:white; font-weight:700; margin-left:4px;">${strP}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; color:#94A3B8; white-space:nowrap;">
+            <span>${isSLKirim ? '🚚 Kirim:' : '✅ Realisasi:'}</span>
+            <strong style="color:white; font-weight:700; margin-left:4px;">${isSLKirim ? strK : strR}</strong>
+          </div>
+        </div>
       `;
       container.appendChild(barWrap);
     });
   }
 
+
+
+
+
   private async fetchParetoData(): Promise<void> {
     try {
       const payload = {
         ...this.activeFilters,
-        dimension: this.activeParetoDimension
+        dimension: this.activeParetoDimension,
+        unfulfill_only: (this.isParetoUnfulfill !== undefined ? this.isParetoUnfulfill : true)
       };
       const res = await fetch(`${this.apiBaseUrl}/api/analytics/pareto`, {
         method: 'POST',
@@ -742,50 +815,169 @@ class DashboardApp {
     }
   }
 
-  private renderParetoTreeMaps(items: ParetoItem[]): void {
-    const grid = document.getElementById('treemapGrid');
-    if (!grid) return;
 
-    if (!items || items.length === 0) {
-      grid.innerHTML = '<div style="color: var(--text-muted); padding: 1rem;">Tidak ada data Pareto untuk kombinasi filter ini.</div>';
+  private renderParetoTreeMaps(items: ParetoItem[]): void {
+    const container = document.getElementById('treemapGrid');
+    if (!container) return;
+
+    // Filter out zero-value items so they don't clog the treemap canvas
+    const nonZeroItems = (items || []).filter(it => it.value > 0);
+
+    if (!nonZeroItems || nonZeroItems.length === 0) {
+      container.innerHTML = '<div style="color: var(--text-muted); padding: 1.5rem;">Tidak ada data Tree Maps untuk kombinasi filter ini.</div>';
       return;
     }
 
-    grid.innerHTML = '';
-    items.slice(0, 12).forEach(it => {
-      const box = document.createElement('div');
-      box.className = 'treemap-box';
-      box.innerHTML = `
-        <div class="treemap-title">${it.name}</div>
-        <div class="treemap-val">${this.activeFilters.metric_type === 'idr' ? 'Rp ' + it.value.toLocaleString('id-ID') : it.value.toLocaleString('id-ID') + ' unit'}</div>
-        <div class="treemap-pct">Kontribusi: ${it.percentage.toFixed(1)}% (Kumulatif: ${it.cumulative_percentage.toFixed(1)}%)</div>
+    container.innerHTML = '';
+    const metricType = this.activeFilters.metric_type || 'idr';
+
+    // Find cutoff index where cumulative_percentage >= 80% (min 80% rule)
+    let vitalIndexCutoff = 0;
+    for (let i = 0; i < nonZeroItems.length; i++) {
+      vitalIndexCutoff = i;
+      if (nonZeroItems[i].cumulative_percentage >= 80.0) {
+        break;
+      }
+    }
+
+    const displayCount = Math.max(vitalIndexCutoff + 1, Math.min(nonZeroItems.length, 12));
+    const displayItems = nonZeroItems.slice(0, displayCount);
+
+    const execWrap = document.createElement('div');
+    execWrap.className = 'tableau-executive-treemap';
+
+    // Tableau Style Legend Bar
+    const legendBar = document.createElement('div');
+    legendBar.className = 'tableau-legend-bar';
+    legendBar.innerHTML = `
+      <div style="font-size: 0.75rem; font-weight: 700; color: #FFFFFF; display:flex; align-items:center; gap:0.4rem;">
+        <span style="color: var(--konimex-gold);">📊</span> TABLEAU VISUAL HEATMAP LEGEND:
+      </div>
+      <div class="tableau-legend-items">
+        <div><span class="tableau-legend-dot" style="background: #DC2626; box-shadow: 0 0 6px #F87171;"></span> ⭐ Top #1 (Dominan Raksasa)</div>
+        <div><span class="tableau-legend-dot" style="background: #EA580C; box-shadow: 0 0 6px #FB923C;"></span> 🔥 Top #2-#3 (Dampak Tinggi)</div>
+        <div><span class="tableau-legend-dot" style="background: #D97706; box-shadow: 0 0 6px #FBBF24;"></span> 🟨 Vital 80% (Dampak Menengah)</div>
+        <div><span class="tableau-legend-dot" style="background: #1D4ED8; box-shadow: 0 0 6px #60A5FA;"></span> 🟦 Minor (< 20%)</div>
+      </div>
+    `;
+
+    execWrap.appendChild(legendBar);
+
+    const flexGrid = document.createElement('div');
+    flexGrid.className = 'tableau-treemap-flex-grid';
+
+    displayItems.forEach((it, idx) => {
+      const tile = document.createElement('div');
+      const isVital = idx <= vitalIndexCutoff;
+
+      // Tableau Heatmap Gradient Class
+      let colorClass = 'tableau-color-slate';
+      if (idx === 0) colorClass = 'tableau-color-top';
+      else if (idx === 1 || idx === 2) colorClass = 'tableau-color-high';
+      else if (isVital) colorClass = 'tableau-color-medium';
+
+      tile.className = `tableau-tile ${colorClass}`;
+
+      // Dynamic proportional flex sizing so every single vital tile fits neatly
+      let flexBasis = '130px';
+      let minHeight = '85px';
+      let titleSize = '0.78rem';
+      let valSize = '0.92rem';
+
+      if (it.percentage >= 25.0) {
+        flexBasis = '320px';
+        minHeight = '145px';
+        titleSize = '1.05rem';
+        valSize = '1.4rem';
+      } else if (it.percentage >= 12.0) {
+        flexBasis = '250px';
+        minHeight = '125px';
+        titleSize = '0.95rem';
+        valSize = '1.2rem';
+      } else if (it.percentage >= 6.0) {
+        flexBasis = '190px';
+        minHeight = '105px';
+        titleSize = '0.88rem';
+        valSize = '1.05rem';
+      } else if (it.percentage >= 3.0) {
+        flexBasis = '145px';
+        minHeight = '90px';
+        titleSize = '0.8rem';
+        valSize = '0.92rem';
+      }
+
+      tile.style.flex = `1 1 ${flexBasis}`;
+      tile.style.minHeight = minHeight;
+
+      const isSelected = (
+        (this.activeParetoDimension === 'alasan' && this.activeFilters.reason === it.name) ||
+        (this.activeParetoDimension === 'cabang' && this.activeFilters.branches.includes(it.name)) ||
+        (this.activeParetoDimension === 'mtm_alias' && this.activeFilters.mtm_aliases.includes(it.name)) ||
+        (this.activeParetoDimension === 'grup_brand' && this.activeFilters.brand_groups.includes(it.name)) ||
+        (this.activeParetoDimension === 'item' && this.activeFilters.items.includes(it.name))
+      );
+      if (isSelected) tile.classList.add('selected');
+
+      const valStr = this.formatMetricVal(it.value, metricType);
+      const badgeHtml = isVital
+        ? `<span style="font-size: 0.62rem; font-weight: 700; color: #FDE047; background: rgba(0,0,0,0.4); border: 1px solid rgba(234,179,8,0.5); padding: 0.12rem 0.4rem; border-radius: 4px; float: right;">⭐ Vital 80%</span>`
+        : ``;
+
+      tile.innerHTML = `
+        <div>
+          ${badgeHtml}
+          <div class="treemap-title" style="font-size: ${titleSize}; text-transform: uppercase; line-height: 1.2;">${it.name}</div>
+        </div>
+        <div style="margin-top: 0.35rem;">
+          <div class="treemap-val" style="font-size: ${valSize}; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">${valStr}</div>
+          <div style="font-size: 0.68rem; color: rgba(255,255,255,0.85); margin-top: 0.2rem;">
+            Kontribusi: <strong style="color: #FDE047;">${it.percentage.toFixed(1)}%</strong> <span style="opacity:0.8;">(Kumulatif: ${it.cumulative_percentage.toFixed(1)}%)</span>
+          </div>
+        </div>
       `;
 
-      box.addEventListener('click', () => {
-        if (this.activeParetoDimension === 'alasan') {
-          this.activeFilters.reason = it.name;
-        } else if (this.activeParetoDimension === 'cabang') {
-          this.activeFilters.branches = [it.name];
-        } else if (this.activeParetoDimension === 'mtm_alias') {
-          this.activeFilters.mtm_aliases = [it.name];
-        } else if (this.activeParetoDimension === 'grup_brand') {
-          this.activeFilters.brand_groups = [it.name];
-        } else if (this.activeParetoDimension === 'item') {
-          this.activeFilters.items = [it.name];
-        }
-        this.refreshDashboardData();
+      tile.addEventListener('click', () => {
+        this.handleTreemapClick(it.name);
       });
 
-      grid.appendChild(box);
+      flexGrid.appendChild(tile);
     });
+
+    execWrap.appendChild(flexGrid);
+    container.appendChild(execWrap);
   }
+
+
+
+
+  private handleTreemapClick(itemName: string): void {
+    if (this.activeParetoDimension === 'alasan') {
+      this.activeFilters.reason = (this.activeFilters.reason === itemName) ? '' : itemName;
+    } else if (this.activeParetoDimension === 'cabang') {
+      this.activeFilters.branches = this.activeFilters.branches.includes(itemName) ? [] : [itemName];
+    } else if (this.activeParetoDimension === 'mtm_alias') {
+      this.activeFilters.mtm_aliases = this.activeFilters.mtm_aliases.includes(itemName) ? [] : [itemName];
+    } else if (this.activeParetoDimension === 'grup_brand') {
+      this.activeFilters.brand_groups = this.activeFilters.brand_groups.includes(itemName) ? [] : [itemName];
+    } else if (this.activeParetoDimension === 'item') {
+      this.activeFilters.items = this.activeFilters.items.includes(itemName) ? [] : [itemName];
+    }
+    this.refreshDashboardData();
+  }
+
+
 
   private async fetchGridData(): Promise<void> {
     try {
+      const payload = {
+        ...this.activeFilters,
+        dimension: this.activeParetoDimension,
+        limit: 50
+      };
       const res = await fetch(`${this.apiBaseUrl}/api/analytics/grid`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...this.activeFilters, limit: 50 })
+        body: JSON.stringify(payload)
       });
       const json = await res.json();
       if (res.ok && json.status === 'success') {
@@ -796,32 +988,62 @@ class DashboardApp {
     }
   }
 
-  renderDetailGrid(records: GridRecord[]): void {
+  private renderDetailGrid(records: any[]): void {
     const tbody = document.getElementById('gridTbody');
     const badge = document.getElementById('gridCountBadge');
+    const titleEl = document.getElementById('gridTableTitle');
+    const thDimEl = document.getElementById('thDimName');
 
-    if (badge) badge.textContent = `${records.length} Transaksi Terfilter`;
+    const dimLabelMap: Record<string, string> = {
+      'alasan': 'Alasan Keterlambatan / Unfulfill',
+      'mtm_alias': 'Akun MTM Alias',
+      'cabang': 'Nama Cabang',
+      'grup_brand': 'Grup Brand',
+      'item': 'Item / Nama Item'
+    };
+
+    const currentDim = this.activeParetoDimension || 'alasan';
+    const dimLabel = dimLabelMap[currentDim] || 'Dimensi Analisis';
+    const metricType = this.activeFilters.metric_type || 'idr';
+
+    if (titleEl) titleEl.textContent = `Tabel Detail Analisis Berdasarkan ${dimLabel}`;
+    if (thDimEl) thDimEl.textContent = dimLabel;
+    if (badge) badge.textContent = `${records ? records.length : 0} Data Terfilter`;
     if (!tbody) return;
 
     if (!records || records.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Tidak ada transaksi yang cocok.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Tidak ada data analisis yang cocok.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = records.map(r => `
-      <tr>
-        <td>${r.month}</td>
-        <td>${r.mtm_type}</td>
-        <td>${r.branch}</td>
-        <td>${r.mtm_alias}</td>
-        <td>${r.brand_group}</td>
-        <td>${r.item_name}</td>
-        <td>Rp ${(r.idr_kirim || 0).toLocaleString('id-ID')}</td>
-        <td>Rp ${(r.idr_realisasi || 0).toLocaleString('id-ID')}</td>
-        <td><span style="color: ${r.reason_final.includes('On-Time') ? '#4ADE80' : '#FFD700'};">${r.reason_final}</span></td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = records.map((r, idx) => {
+      const valP = this.formatMetricVal(r.total_pesan, metricType);
+      const valK = this.formatMetricVal(r.total_kirim, metricType);
+      const valR = this.formatMetricVal(r.total_realisasi, metricType);
+      const valGap = this.formatMetricVal(r.gap_unfulfill, metricType);
+
+      const isVital = r.is_vital;
+      const statusBadge = isVital
+        ? `<span style="font-size: 0.7rem; font-weight: 700; color: #FDE047; background: rgba(220,38,38,0.25); border: 1px solid #F87171; padding: 0.15rem 0.45rem; border-radius: 4px;">⭐ Vital 80%</span>`
+        : `<span style="font-size: 0.7rem; font-weight: 600; color: #94A3B8; background: rgba(255,255,255,0.05); padding: 0.15rem 0.45rem; border-radius: 4px;">Minor</span>`;
+
+      return `
+        <tr>
+          <td style="text-align: center; font-weight: 600; color: var(--text-muted);">${idx + 1}</td>
+          <td style="font-weight: 700; color: #FFFFFF;">${r.name}</td>
+          <td style="text-align: right; color: #CBD5E1;">${valP}</td>
+          <td style="text-align: right; color: #4ADE80;">${valK}</td>
+          <td style="text-align: right; color: #FBBF24;">${valR}</td>
+          <td style="text-align: right; font-weight: 800; color: #EF4444;">${valGap}</td>
+          <td style="text-align: center; font-weight: 700; color: ${r.sl_kirim >= 85 ? '#4ADE80' : '#EF4444'};">${r.sl_kirim.toFixed(1)}%</td>
+          <td style="text-align: center; font-weight: 700; color: ${r.sl_realisasi >= 85 ? '#4ADE80' : '#EF4444'};">${r.sl_realisasi.toFixed(1)}%</td>
+          <td style="text-align: center;">${statusBadge}</td>
+        </tr>
+      `;
+    }).join('');
   }
+
+
 }
 
 window.addEventListener('DOMContentLoaded', () => {

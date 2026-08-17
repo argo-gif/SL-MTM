@@ -64,114 +64,123 @@
 
   <!-- Main Dashboard View -->
   <main class="dashboard-container">
-    <!-- Filter Bar & Switcher -->
+    <!-- Executive Control Panel (Filter Bar & Header) -->
     <section class="filter-bar">
-      <div class="filter-group">
-        <label>Bulan Pengiriman</label>
-        <div class="custom-select-container" id="containerMonth">
-          <div class="custom-select-trigger">
-            <span class="custom-select-text">Semua Bulan (All Months)</span>
-            <span class="custom-select-arrow">▼</span>
-          </div>
-          <div class="custom-select-menu">
-            <div class="custom-options-list"></div>
-          </div>
-
-          <select id="filterMonth" class="filter-select" style="display:none;">
-            <option value="">Semua Bulan (All Months)</option>
-          </select>
+      <div class="filter-panel-header">
+        <div class="filter-panel-title">
+          <span class="panel-icon">🎛️</span>
+          <span class="panel-title-text">GLOBAL ANALYTICS FILTERS</span>
+          <span class="panel-badge">6 Dimensions Linked</span>
         </div>
+        <button class="btn-action btn-outline filter-reset-btn" id="btnResetFilter">
+          <span class="reset-icon">🔄</span> Reset Filter
+        </button>
       </div>
 
-      <div class="filter-group">
-        <label>Jenis MTM</label>
-        <div class="custom-select-container" id="containerMTMType">
-          <div class="custom-select-trigger">
-            <span class="custom-select-text">KA</span>
-            <span class="custom-select-arrow">▼</span>
+      <div class="filter-grid">
+        <div class="filter-group">
+          <label><span class="label-icon">📅</span> Bulan Pengiriman</label>
+          <div class="custom-select-container" id="containerMonth">
+            <div class="custom-select-trigger">
+              <span class="custom-select-text">Semua Bulan (All Months)</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-menu">
+              <div class="custom-options-list"></div>
+            </div>
+            <select id="filterMonth" class="filter-select" style="display:none;">
+              <option value="">Semua Bulan (All Months)</option>
+            </select>
           </div>
-          <div class="custom-select-menu">
-            <input type="text" class="custom-search-input" placeholder="🔍 Cari Jenis MTM...">
-            <div class="custom-options-list"></div>
-          </div>
-          <select id="filterMTMType" class="filter-select" style="display:none;">
-            <option value="KA">KA (Key Account)</option>
-          </select>
         </div>
-      </div>
 
-      <div class="filter-group">
-        <label>Cabang</label>
-        <div class="custom-select-container" id="containerBranch">
-          <div class="custom-select-trigger">
-            <span class="custom-select-text">Semua Cabang</span>
-            <span class="custom-select-arrow">▼</span>
+        <div class="filter-group">
+          <label><span class="label-icon">🏷️</span> Jenis MTM</label>
+          <div class="custom-select-container" id="containerMTMType">
+            <div class="custom-select-trigger">
+              <span class="custom-select-text">KA</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-menu">
+              <input type="text" class="custom-search-input" placeholder="🔍 Cari Jenis MTM...">
+              <div class="custom-options-list"></div>
+            </div>
+            <select id="filterMTMType" class="filter-select" style="display:none;">
+              <option value="KA">KA (Key Account)</option>
+            </select>
           </div>
-          <div class="custom-select-menu">
-            <input type="text" class="custom-search-input" placeholder="🔍 Cari Cabang...">
-            <div class="custom-options-list"></div>
-          </div>
-          <select id="filterBranch" class="filter-select" style="display:none;">
-            <option value="">Semua Cabang</option>
-          </select>
         </div>
-      </div>
 
-      <div class="filter-group">
-        <label>MTM Alias</label>
-        <div class="custom-select-container" id="containerAlias">
-          <div class="custom-select-trigger">
-            <span class="custom-select-text">Semua Alias</span>
-            <span class="custom-select-arrow">▼</span>
+        <div class="filter-group">
+          <label><span class="label-icon">🏢</span> Cabang</label>
+          <div class="custom-select-container" id="containerBranch">
+            <div class="custom-select-trigger">
+              <span class="custom-select-text">Semua Cabang</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-menu">
+              <input type="text" class="custom-search-input" placeholder="🔍 Cari Cabang...">
+              <div class="custom-options-list"></div>
+            </div>
+            <select id="filterBranch" class="filter-select" style="display:none;">
+              <option value="">Semua Cabang</option>
+            </select>
           </div>
-          <div class="custom-select-menu">
-            <input type="text" class="custom-search-input" placeholder="🔍 Cari Alias...">
-            <div class="custom-options-list"></div>
-          </div>
-          <select id="filterAlias" class="filter-select" style="display:none;">
-            <option value="">Semua Alias</option>
-          </select>
         </div>
-      </div>
 
-      <div class="filter-group">
-        <label>Grup Brand</label>
-        <div class="custom-select-container" id="containerBrandGroup">
-          <div class="custom-select-trigger">
-            <span class="custom-select-text">Semua Grup Brand</span>
-            <span class="custom-select-arrow">▼</span>
+        <div class="filter-group">
+          <label><span class="label-icon">🔤</span> MTM Alias</label>
+          <div class="custom-select-container" id="containerAlias">
+            <div class="custom-select-trigger">
+              <span class="custom-select-text">Semua Alias</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-menu">
+              <input type="text" class="custom-search-input" placeholder="🔍 Cari Alias...">
+              <div class="custom-options-list"></div>
+            </div>
+            <select id="filterAlias" class="filter-select" style="display:none;">
+              <option value="">Semua Alias</option>
+            </select>
           </div>
-          <div class="custom-select-menu">
-            <input type="text" class="custom-search-input" placeholder="🔍 Cari Grup Brand...">
-            <div class="custom-options-list"></div>
-          </div>
-          <select id="filterBrandGroup" class="filter-select" style="display:none;">
-            <option value="">Semua Grup Brand</option>
-          </select>
         </div>
-      </div>
 
-      <div class="filter-group">
-        <label>Produk / Item (Kode - Nama)</label>
-        <div class="custom-select-container" id="containerItem">
-          <div class="custom-select-trigger">
-            <span class="custom-select-text">Semua Produk / Item</span>
-            <span class="custom-select-arrow">▼</span>
+        <div class="filter-group">
+          <label><span class="label-icon">📦</span> Grup Brand</label>
+          <div class="custom-select-container" id="containerBrandGroup">
+            <div class="custom-select-trigger">
+              <span class="custom-select-text">Semua Grup Brand</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-menu">
+              <input type="text" class="custom-search-input" placeholder="🔍 Cari Grup Brand...">
+              <div class="custom-options-list"></div>
+            </div>
+            <select id="filterBrandGroup" class="filter-select" style="display:none;">
+              <option value="">Semua Grup Brand</option>
+            </select>
           </div>
-          <div class="custom-select-menu">
-            <input type="text" class="custom-search-input" placeholder="🔍 Cari Kode / Nama Item...">
-            <div class="custom-options-list"></div>
-          </div>
-          <select id="filterItem" class="filter-select" style="display:none;">
-            <option value="">Semua Produk / Item</option>
-          </select>
         </div>
-      </div>
 
-      <div class="filter-group" style="display: flex; gap: 0.5rem;">
-        <button class="btn-action btn-outline" id="btnResetFilter" style="width: 100%;">Reset Filter</button>
+        <div class="filter-group">
+          <label><span class="label-icon">💊</span> Produk / Item</label>
+          <div class="custom-select-container" id="containerItem">
+            <div class="custom-select-trigger">
+              <span class="custom-select-text">Semua Produk / Item</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-menu">
+              <input type="text" class="custom-search-input" placeholder="🔍 Cari Kode / Nama Item...">
+              <div class="custom-options-list"></div>
+            </div>
+            <select id="filterItem" class="filter-select" style="display:none;">
+              <option value="">Semua Produk / Item</option>
+            </select>
+          </div>
+        </div>
       </div>
     </section>
+
 
     <!-- KPI Summary Scorecards (3 Columns Horizontal Layout) -->
     <section class="scorecard-grid">
@@ -263,63 +272,88 @@
 
 
 
-    <!-- Monthly Performance Trend Line Chart -->
+    <!-- Monthly Performance Trend Section (Concise Executive Chart) -->
     <section class="pareto-container" style="margin-bottom: 1.5rem;">
       <div class="pareto-header">
-        <h2>Analisis Tren Bulanan (Monthly Performance Trend)</h2>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
+          <span style="font-size:1.1rem;">📈</span>
+          <h2 style="margin:0;">Analisis Tren Bulanan (Monthly Performance Trend)</h2>
+          <span class="panel-badge" style="background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.3); color: var(--konimex-gold); font-size: 0.72rem; font-weight: 600; padding: 0.18rem 0.55rem; border-radius: 12px;">🎯 Target: 85.0%</span>
+        </div>
         <div class="switcher-toggle" style="width: auto;">
-          <button class="switcher-btn active" id="btnTrendSLKirim">SL Kirim (Default)</button>
+          <button class="switcher-btn active" id="btnTrendSLKirim">SL Kirim</button>
           <button class="switcher-btn" id="btnTrendSLRealisasi">SL Realisasi</button>
         </div>
       </div>
-      <div id="trendChartContainer" style="display: flex; gap: 1rem; align-items: flex-end; height: 180px; padding: 1rem 0; border-bottom: 1px solid var(--border-color); overflow-x: auto;">
-        <div style="color: var(--text-muted);">Memuat grafik tren bulanan...</div>
+
+      <!-- Concise Interactive Chart & Sub-Cards Area -->
+      <div class="trend-chart-wrapper" style="position:relative; padding: 1.25rem 0.5rem 0.5rem 0.5rem;">
+        <div class="trend-target-line"></div>
+        <div id="trendChartBars" style="display: flex; gap: 1rem; align-items: flex-end; height: 260px; overflow-x: auto; padding-bottom: 0.5rem;">
+          <div style="color: var(--text-muted); padding: 1rem;">Memuat grafik tren bulanan...</div>
+        </div>
       </div>
     </section>
+
+
+
 
     <!-- Pareto Tree Maps Multi-Dimension -->
     <section class="pareto-container">
 
       <div class="pareto-header">
-        <h2>Analisis Komposisi Tree Maps (Pareto Focus)</h2>
-        <span class="card-target" id="crossFilterBadge">Klik kotak Pareto untuk menerapkan Cross-Filter</span>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
+          <span style="font-size:1.1rem;">🗺️</span>
+          <h2 style="margin:0;">Analisis Unfulfill Tree Maps (Pareto Focus)</h2>
+          <span class="card-target" id="crossFilterBadge">Klik kotak Treemap untuk Cross-Filter</span>
+
+        </div>
+        <div class="switcher-toggle" style="width: auto;">
+          <button class="switcher-btn active" id="btnParetoUnfulfill">⚠️ Pareto Unfulfill / Masalah</button>
+          <button class="switcher-btn" id="btnParetoAll">📊 Total Komposisi (All)</button>
+        </div>
       </div>
 
       <!-- Dedicated Tabs/Sheets -->
       <div class="pareto-tabs">
-        <button class="pareto-tab active" data-dim="alasan">Sheet Alasan</button>
-        <button class="pareto-tab" data-dim="mtm_alias">Sheet MTM Alias</button>
-        <button class="pareto-tab" data-dim="cabang">Sheet Cabang</button>
-        <button class="pareto-tab" data-dim="grup_brand">Sheet Grup Brand</button>
-        <button class="pareto-tab" data-dim="item">Sheet Item / Nama Item</button>
+        <button class="pareto-tab active" data-dim="alasan">Alasan</button>
+        <button class="pareto-tab" data-dim="mtm_alias">MTM Alias</button>
+        <button class="pareto-tab" data-dim="cabang">Cabang</button>
+        <button class="pareto-tab" data-dim="grup_brand">Grup Brand</button>
+        <button class="pareto-tab" data-dim="item">Item / Nama Item</button>
       </div>
 
+
+      <!-- Treemap Proportional Tile Grid -->
       <div class="treemap-grid" id="treemapGrid">
         <div style="color: var(--text-muted); padding: 1rem;">Memuat data Tree Maps...</div>
       </div>
     </section>
 
+
     <!-- Detail Data Analysis Grid -->
     <section class="data-table-container">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h2>Tabel Detail Data Analisis Transaksi</h2>
-        <span class="card-target" id="gridCountBadge">0 Transaksi Terfilter</span>
+        <h2 id="gridTableTitle">Tabel Detail Analisis Berdasarkan Alasan</h2>
+        <span class="card-target" id="gridCountBadge">0 Data Terfilter</span>
       </div>
 
       <table class="data-table">
-        <thead>
+        <thead id="gridThead">
           <tr>
-            <th>Bulan</th>
-            <th>Jenis MTM</th>
-            <th>Cabang</th>
-            <th>MTM Alias</th>
-            <th>Grup Brand</th>
-            <th>Nama Item</th>
-            <th>R_Kirim (IDR)</th>
-            <th>RP_Realisasi (IDR)</th>
-            <th>Alasan Akhir</th>
+            <th style="width: 45px;">No</th>
+            <th id="thDimName">Alasan Keterlambatan / Unfulfill</th>
+            <th>Total Order (Pesan)</th>
+            <th>Total Kirim</th>
+            <th>Total Realisasi</th>
+            <th>Gap Unfulfilled (Selisih)</th>
+            <th>SL Kirim (%)</th>
+            <th>SL Realisasi (%)</th>
+            <th>Status Pareto</th>
           </tr>
         </thead>
+
+
         <tbody id="gridTbody">
           <tr>
             <td colspan="9" style="text-align: center; color: var(--text-muted);">Memuat data transaksi...</td>

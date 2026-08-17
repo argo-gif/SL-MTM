@@ -177,17 +177,33 @@ class MTMDataProcessor:
         return self.get_detail_grid(filters, limit=1000)
 
     def get_monthly_trend(self, filters: Dict[str, Any], metric_type: str = "idr") -> List[Dict[str, Any]]:
-        base_filters = {k: v for k, v in filters.items() if k != 'month'}
+        # Extract max month filter if specified
+        max_month = None
+        if filters.get('months'):
+            valid_m = [m for m in filters['months'] if m and m != 'Semua Bulan']
+            if valid_m:
+                max_month = max(valid_m)
+        elif filters.get('month') and filters['month'] != 'Semua Bulan':
+            max_month = filters['month']
+
+        base_filters = {k: v for k, v in filters.items() if k not in ['month', 'months']}
         where_sql, params = self._build_where_clause(base_filters)
+
+        if max_month:
+            where_sql += " AND month <= ?" if "WHERE" in where_sql else " WHERE month <= ?"
+            params.append(max_month)
+
         conn = self.get_connection()
         cur = conn.cursor()
 
+        p_col = 'idr_pesan' if metric_type == 'idr' else 'qty_order'
         k_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
         r_col = 'idr_realisasi' if metric_type == 'idr' else 'qty_realisasi'
 
         sql = f"""
             SELECT 
                 month,
+                SUM({p_col}) as total_p,
                 SUM({k_col}) as total_k,
                 SUM({r_col}) as total_r,
                 SUM(CASE WHEN reason_final = 'On-Time / Sesuai' THEN {k_col} ELSE 0 END) as ok_k,
@@ -196,32 +212,58 @@ class MTMDataProcessor:
             GROUP BY month
             ORDER BY month;
         """
+
         cur.execute(sql, params)
         rows = cur.fetchall()
         conn.close()
 
         trend = []
         for r in rows:
-            m, total_k, total_r, ok_k, ok_r = r[0], r[1] or 0, r[2] or 0, r[3] or 0, r[4] or 0
-            sl_k = (ok_k / total_k * 100.0) if total_k > 0 else 88.5
-            sl_r = (ok_r / total_r * 100.0) if total_r > 0 else 84.2
+            m = r[0]
+            total_p = r[1] or 0.0
+            total_k = r[2] or 0.0
+            total_r = r[3] or 0.0
+            ok_k = r[4] or 0.0
+            ok_r = r[5] or 0.0
+
+            sl_k = (ok_k / total_p * 100.0) if total_p > 0 else ((ok_k / total_k * 100.0) if total_k > 0 else 0.0)
+            sl_r = (ok_r / total_p * 100.0) if total_p > 0 else ((ok_r / total_k * 100.0) if total_k > 0 else 0.0)
+            gap = round(sl_r - sl_k, 2)
+
             trend.append({
                 "month": m,
+                "total_p": total_p,
+                "total_k": total_k,
+                "total_r": total_r,
+                "ok_k": ok_k,
+                "ok_r": ok_r,
                 "sl_kirim": round(sl_k, 2),
                 "sl_realisasi": round(sl_r, 2),
+                "gap": gap,
                 "target": 85.0
             })
         return trend
 
-    def get_pareto_tree_maps(self, filters: Dict[str, Any], dimension: str, metric_type: str = "idr") -> List[Dict[str, Any]]:
+
+    def get_pareto_tree_maps(self, filters: Dict[str, Any], dimension: str, metric_type: str = "idr", unfulfill_only: bool = True) -> List[Dict[str, Any]]:
         dim_map = {
             'alasan': 'reason_final', 'mtm_alias': 'mtm_alias',
             'cabang': 'branch', 'grup_brand': 'brand_group', 'item': 'item_name'
         }
         dim_col = dim_map.get(dimension.lower(), dimension)
-        val_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
+
+        is_unfulfill = unfulfill_only if 'unfulfill_only' in filters is False else filters.get('unfulfill_only', unfulfill_only)
+
+        if is_unfulfill:
+            val_col = "(CASE WHEN (idr_pesan - idr_kirim) > 0 THEN (idr_pesan - idr_kirim) ELSE idr_pesan END)" if metric_type == 'idr' else "(CASE WHEN (qty_order - qty_kirim) > 0 THEN (qty_order - qty_kirim) ELSE qty_order END)"
+        else:
+            val_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
 
         where_sql, params = self._build_where_clause(filters)
+
+        if is_unfulfill:
+            where_sql += " AND reason_final != 'On-Time / Sesuai'" if "WHERE" in where_sql else " WHERE reason_final != 'On-Time / Sesuai'"
+
         conn = self.get_connection()
         cur = conn.cursor()
 
@@ -253,15 +295,39 @@ class MTMDataProcessor:
             })
         return result
 
-    def get_detail_grid(self, filters: Dict[str, Any], limit: int = 500) -> List[Dict[str, Any]]:
+
+
+    def get_detail_grid(self, filters: Dict[str, Any], dimension: str = "alasan", metric_type: str = "idr", limit: int = 500) -> List[Dict[str, Any]]:
+        dim_map = {
+            'alasan': 'reason_final', 'mtm_alias': 'mtm_alias',
+            'cabang': 'branch', 'grup_brand': 'brand_group', 'item': 'item_name'
+        }
+        dim_col = dim_map.get(dimension.lower(), 'reason_final')
+
+        p_col = 'idr_pesan' if metric_type == 'idr' else 'qty_order'
+        k_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
+        r_col = 'idr_realisasi' if metric_type == 'idr' else 'qty_realisasi'
+
         where_sql, params = self._build_where_clause(filters)
+
+        is_unfulfill = filters.get('unfulfill_only', True)
+        if is_unfulfill:
+            where_sql += " AND reason_final != 'On-Time / Sesuai'" if "WHERE" in where_sql else " WHERE reason_final != 'On-Time / Sesuai'"
+
         conn = self.get_connection()
         cur = conn.cursor()
 
         sql = f"""
-            SELECT month, mtm_type, branch, mtm_alias, brand_group, item_display,
-                   idr_kirim, idr_realisasi, qty_kirim, qty_realisasi, reason_final
+            SELECT 
+                {dim_col} as name,
+                COUNT(*) as total_trx,
+                SUM({p_col}) as total_p,
+                SUM({k_col}) as total_k,
+                SUM({r_col}) as total_r,
+                SUM(CASE WHEN ({p_col} - {k_col}) > 0 THEN ({p_col} - {k_col}) ELSE {p_col} END) as gap_unfulfill
             FROM dataset {where_sql}
+            GROUP BY {dim_col}
+            ORDER BY gap_unfulfill DESC
             LIMIT {limit};
         """
 
@@ -269,19 +335,39 @@ class MTMDataProcessor:
         rows = cur.fetchall()
         conn.close()
 
+        total_gap_all = sum(float(r[5] or 0) for r in rows)
+        cum_pct = 0.0
+
         records = []
         for r in rows:
+            name = str(r[0] or 'Lainnya')
+            total_trx = int(r[1] or 0)
+            total_p = float(r[2] or 0)
+            total_k = float(r[3] or 0)
+            total_r = float(r[4] or 0)
+            gap_unfulfill = float(r[5] or 0)
+
+            sl_k = (total_k / total_p * 100.0) if total_p > 0 else 0.0
+            sl_r = (total_r / total_p * 100.0) if total_p > 0 else 0.0
+
+            pct = (gap_unfulfill / total_gap_all * 100.0) if total_gap_all > 0 else 0.0
+            cum_pct += pct
+
             records.append({
-                "month": r[0],
-                "mtm_type": r[1],
-                "branch": r[2],
-                "mtm_alias": r[3],
-                "brand_group": r[4],
-                "item_name": r[5],
-                "idr_kirim": float(r[6] or 0),
-                "idr_realisasi": float(r[7] or 0),
-                "qty_kirim": float(r[8] or 0),
-                "qty_realisasi": float(r[9] or 0),
-                "reason_final": r[10]
+                "dimension": dimension,
+                "name": name,
+                "total_trx": total_trx,
+                "total_pesan": round(total_p, 2),
+                "total_kirim": round(total_k, 2),
+                "total_realisasi": round(total_r, 2),
+                "gap_unfulfill": round(gap_unfulfill, 2),
+                "sl_kirim": round(sl_k, 2),
+                "sl_realisasi": round(sl_r, 2),
+                "percentage": round(pct, 2),
+                "cumulative_percentage": round(cum_pct, 2),
+                "is_vital": cum_pct <= 80.0 or (len(records) == 0)
             })
+
+
         return records
+

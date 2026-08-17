@@ -122,13 +122,18 @@ class MTMAPIHandler(BaseHTTPRequestHandler):
             elif path == '/api/analytics/pareto':
                 metric_type = req_data.get("metric_type", "idr")
                 dimension = req_data.get("dimension", "alasan")
-                pareto_data = processor.get_pareto_tree_maps(req_data, dimension=dimension, metric_type=metric_type)
+                unfulfill_only = req_data.get("unfulfill_only", True)
+                pareto_data = processor.get_pareto_tree_maps(req_data, dimension=dimension, metric_type=metric_type, unfulfill_only=unfulfill_only)
                 self._send_json({"status": "success", "data": pareto_data})
+
 
             elif path == '/api/analytics/grid':
                 limit = int(req_data.get("limit", 500))
-                grid_data = processor.get_detail_grid(req_data, limit=limit)
+                dimension = req_data.get("dimension", "alasan")
+                metric_type = req_data.get("metric_type", "idr")
+                grid_data = processor.get_detail_grid(req_data, dimension=dimension, metric_type=metric_type, limit=limit)
                 self._send_json({"status": "success", "data": grid_data})
+
 
             elif path == '/api/data/upload':
                 try:
