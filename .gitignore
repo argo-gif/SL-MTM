@@ -1,0 +1,31 @@
+# Virtual Environment
+backend/venv/
+venv/
+.venv/
+
+# Large Database files (>100MB auto-built by Python)
+backend/dataset.db
+*.db
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node / Frontend build
+node_modules/
+dist/
+.cache/
+
+# OS / IDE temp files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporary generated files
+downloaded_api_test.pptx
+test_generated_report.pptx
+~$*

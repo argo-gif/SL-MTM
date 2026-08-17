@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive MTM Service Level KPI & Pareto Analytics Dashboard | PT Konimex</title>
+  <link rel="stylesheet" href="src/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Mandatory Login Gate Page (Hidden) -->
+  <div id="loginGateView" class="login-gate-container" style="display: none;">
+    <div class="login-gate-card">
+      <div class="login-gate-header">
+        <img src="images.jpeg" alt="Logo Konimex" class="login-konimex-logo">
+        <h2>Dashboard Pemenuhan Service Level MTM</h2>
+        <p>PT Konimex - Key Performance Indicator & Pareto Analytics</p>
+      </div>
+      <form id="loginFormGate">
+        <div class="form-group" style="text-align: left; margin-bottom: 1rem;">
+          <label for="usernameInputGate" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Username</label>
+          <input type="text" id="usernameInputGate" class="login-gate-input" placeholder="Masukkan Username" autocomplete="username">
+        </div>
+        <div class="form-group" style="text-align: left; margin-bottom: 1rem;">
+          <label for="passwordInputGate" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Password</label>
+          <input type="password" id="passwordInputGate" class="login-gate-input" placeholder="Masukkan Password" autocomplete="current-password">
+        </div>
+        <div id="loginGateError" class="login-gate-error" style="display: none;"></div>
+        <button type="submit" class="btn-action btn-primary login-gate-btn">Masuk ke Dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard App Content (Direct Access Enabled) -->
+  <div id="appDashboardContent" style="display: block;">
+    <!-- Application Header -->
+    <header class="app-header">
+      <div class="brand-section">
+        <img src="images.jpeg" alt="Logo Konimex" class="konimex-logo" id="headerLogo">
+        <div class="brand-title">
+          <h1>Dashboard Pemenuhan Service Level MTM</h1>
+          <p>Interactive Key Performance Indicator & Pareto Analytics</p>
+        </div>
+      </div>
+      <div class="user-profile" id="userProfile">
+        <div class="header-metric-group">
+          <span class="header-metric-label">METRIK:</span>
+          <div class="switcher-toggle">
+            <button class="switcher-btn active" id="btnMetricIDR">Rupiah (IDR)</button>
+            <button class="switcher-btn" id="btnMetricQty">Qty (Unit)</button>
+          </div>
+        </div>
+        <button class="btn-action btn-primary" id="btnOpenExportModal">📊 Ekspor PPT</button>
+        <button class="btn-action btn-gold" id="btnOpenUploadModal">📁 Upload Data</button>
+        <span class="role-badge admin" id="userRoleBadge">ADMIN</span>
+      </div>
+    </header>
+
+
+
+
+
+  <!-- Main Dashboard View -->
+  <main class="dashboard-container">
+    <!-- Filter Bar & Switcher -->
+    <section class="filter-bar">
+      <div class="filter-group">
+        <label>Bulan Pengiriman</label>
+        <div class="custom-select-container" id="containerMonth">
+          <div class="custom-select-trigger">
+            <span class="custom-select-text">Semua Bulan (All Months)</span>
+            <span class="custom-select-arrow">▼</span>
+          </div>
+          <div class="custom-select-menu">
+            <div class="custom-options-list"></div>
+          </div>
+
+          <select id="filterMonth" class="filter-select" style="display:none;">
+            <option value="">Semua Bulan (All Months)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Jenis MTM</label>
+        <div class="custom-select-container" id="containerMTMType">
+          <div class="custom-select-trigger">
+            <span class="custom-select-text">KA</span>
+            <span class="custom-select-arrow">▼</span>
+          </div>
+          <div class="custom-select-menu">
+            <input type="text" class="custom-search-input" placeholder="🔍 Cari Jenis MTM...">
+            <div class="custom-options-list"></div>
+          </div>
+          <select id="filterMTMType" class="filter-select" style="display:none;">
+            <option value="KA">KA (Key Account)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Cabang</label>
+        <div class="custom-select-container" id="containerBranch">
+          <div class="custom-select-trigger">
+            <span class="custom-select-text">Semua Cabang</span>
+            <span class="custom-select-arrow">▼</span>
+          </div>
+          <div class="custom-select-menu">
+            <input type="text" class="custom-search-input" placeholder="🔍 Cari Cabang...">
+            <div class="custom-options-list"></div>
+          </div>
+          <select id="filterBranch" class="filter-select" style="display:none;">
+            <option value="">Semua Cabang</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>MTM Alias</label>
+        <div class="custom-select-container" id="containerAlias">
+          <div class="custom-select-trigger">
+            <span class="custom-select-text">Semua Alias</span>
+            <span class="custom-select-arrow">▼</span>
+          </div>
+          <div class="custom-select-menu">
+            <input type="text" class="custom-search-input" placeholder="🔍 Cari Alias...">
+            <div class="custom-options-list"></div>
+          </div>
+          <select id="filterAlias" class="filter-select" style="display:none;">
+            <option value="">Semua Alias</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Grup Brand</label>
+        <div class="custom-select-container" id="containerBrandGroup">
+          <div class="custom-select-trigger">
+            <span class="custom-select-text">Semua Grup Brand</span>
+            <span class="custom-select-arrow">▼</span>
+          </div>
+          <div class="custom-select-menu">
+            <input type="text" class="custom-search-input" placeholder="🔍 Cari Grup Brand...">
+            <div class="custom-options-list"></div>
+          </div>
+          <select id="filterBrandGroup" class="filter-select" style="display:none;">
+            <option value="">Semua Grup Brand</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Produk / Item (Kode - Nama)</label>
+        <div class="custom-select-container" id="containerItem">
+          <div class="custom-select-trigger">
+            <span class="custom-select-text">Semua Produk / Item</span>
+            <span class="custom-select-arrow">▼</span>
+          </div>
+          <div class="custom-select-menu">
+            <input type="text" class="custom-search-input" placeholder="🔍 Cari Kode / Nama Item...">
+            <div class="custom-options-list"></div>
+          </div>
+          <select id="filterItem" class="filter-select" style="display:none;">
+            <option value="">Semua Produk / Item</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group" style="display: flex; gap: 0.5rem;">
+        <button class="btn-action btn-outline" id="btnResetFilter" style="width: 100%;">Reset Filter</button>
+      </div>
+    </section>
+
+    <!-- KPI Summary Scorecards (3 Columns Horizontal Layout) -->
+    <section class="scorecard-grid">
+      <!-- Card 1: Service Level Kirim -->
+      <div class="scorecard-card kirim-card-theme">
+
+        <div class="card-header-row" style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card-title"><span class="card-icon">📦</span> Service Level Kirim</div>
+          <span class="target-badge badge-success" id="badgeStatusKirim">✓ SESUAI TARGET</span>
+        </div>
+        <div class="card-value kirim-value-glow" id="valSLKirim">0.0%</div>
+        <div class="card-target" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Acuan Target: <strong>85.0%</strong></span>
+          <span class="target-diff-text" id="diffTargetKirim" style="color: #4ADE80; font-weight: 600;">+0.0% vs Target</span>
+        </div>
+        <div class="card-progress-track">
+          <div class="card-progress-fill fill-kirim" id="progressKirim" style="width: 0%;"></div>
+        </div>
+        <div class="card-detail-box" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+          <div class="stat-strip">
+            <span class="stat-strip-label">📋 Total Pesanan (Pesan):</span>
+            <strong id="valTotalPesanKirim" class="stat-strip-val">-</strong>
+          </div>
+          <div class="stat-strip">
+            <span class="stat-strip-label">🚚 Total Pengiriman (Kirim):</span>
+            <strong id="valTotalKirim" class="stat-strip-val">-</strong>
+          </div>
+        </div>
+        <div class="benchmark-line" id="lineKirim"></div>
+      </div>
+
+      <!-- Card 2: Service Level Realisasi -->
+      <div class="scorecard-card realisasi-card-theme">
+        <div class="card-header-row" style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card-title"><span class="card-icon">🏢</span> Service Level Realisasi</div>
+          <span class="target-badge badge-danger" id="badgeStatusRealisasi">⚠️ DI BAWAH TARGET</span>
+        </div>
+        <div class="card-value realisasi-value-glow" id="valSLRealisasi">0.0%</div>
+        <div class="card-target" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Acuan Target: <strong>85.0%</strong></span>
+          <span class="target-diff-text" id="diffTargetRealisasi" style="color: #FF4D4D; font-weight: 600;">-0.0% vs Target</span>
+        </div>
+        <div class="card-progress-track">
+          <div class="card-progress-fill fill-realisasi" id="progressRealisasi" style="width: 0%;"></div>
+        </div>
+        <div class="card-detail-box" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+          <div class="stat-strip">
+            <span class="stat-strip-label">📋 Total Pesanan (Pesan):</span>
+            <strong id="valTotalPesanRealisasi" class="stat-strip-val">-</strong>
+          </div>
+          <div class="stat-strip">
+            <span class="stat-strip-label">✅ Total Realisasi Diterima:</span>
+            <strong id="valTotalRealisasi" class="stat-strip-val">-</strong>
+          </div>
+        </div>
+
+        <div class="benchmark-line" id="lineRealisasi"></div>
+      </div>
+
+      <!-- Card 3: Gap Realisasi vs Kirim -->
+      <div class="scorecard-card gap-card-highlight">
+        <div class="card-header-row" style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card-title"><span class="card-icon">⚡</span> Gap Realisasi vs Kirim</div>
+          <span class="target-badge badge-danger" id="badgeStatusGap">⚠️ SELISIH NEGATIF</span>
+        </div>
+        <div class="card-value gap-value-highlight" id="valSLGap">-0.0%</div>
+        <div class="card-target" style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="gap-subtitle-gold">Selisih Persentase (Realisasi - Kirim)</span>
+        </div>
+        <div class="card-progress-track">
+          <div class="card-progress-fill fill-gap" id="progressGap" style="width: 0%;"></div>
+        </div>
+        <div class="card-detail-box" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+          <div class="gap-nominal-box">
+            <span class="gap-nominal-label">🔻 Selisih Realisasi vs Kirim:</span>
+            <strong id="valGapDiffRK" class="gap-nominal-val">-</strong>
+          </div>
+          <div class="stat-strip">
+            <span class="stat-strip-label">📊 Dataset Terfilter:</span>
+            <strong id="valTotalRowsCount" class="stat-strip-val">- Transaksi</strong>
+          </div>
+        </div>
+        <div class="benchmark-line"></div>
+      </div>
+    </section>
+
+
+
+
+
+
+    <!-- Monthly Performance Trend Line Chart -->
+    <section class="pareto-container" style="margin-bottom: 1.5rem;">
+      <div class="pareto-header">
+        <h2>Analisis Tren Bulanan (Monthly Performance Trend)</h2>
+        <div class="switcher-toggle" style="width: auto;">
+          <button class="switcher-btn active" id="btnTrendSLKirim">SL Kirim (Default)</button>
+          <button class="switcher-btn" id="btnTrendSLRealisasi">SL Realisasi</button>
+        </div>
+      </div>
+      <div id="trendChartContainer" style="display: flex; gap: 1rem; align-items: flex-end; height: 180px; padding: 1rem 0; border-bottom: 1px solid var(--border-color); overflow-x: auto;">
+        <div style="color: var(--text-muted);">Memuat grafik tren bulanan...</div>
+      </div>
+    </section>
+
+    <!-- Pareto Tree Maps Multi-Dimension -->
+    <section class="pareto-container">
+
+      <div class="pareto-header">
+        <h2>Analisis Komposisi Tree Maps (Pareto Focus)</h2>
+        <span class="card-target" id="crossFilterBadge">Klik kotak Pareto untuk menerapkan Cross-Filter</span>
+      </div>
+
+      <!-- Dedicated Tabs/Sheets -->
+      <div class="pareto-tabs">
+        <button class="pareto-tab active" data-dim="alasan">Sheet Alasan</button>
+        <button class="pareto-tab" data-dim="mtm_alias">Sheet MTM Alias</button>
+        <button class="pareto-tab" data-dim="cabang">Sheet Cabang</button>
+        <button class="pareto-tab" data-dim="grup_brand">Sheet Grup Brand</button>
+        <button class="pareto-tab" data-dim="item">Sheet Item / Nama Item</button>
+      </div>
+
+      <div class="treemap-grid" id="treemapGrid">
+        <div style="color: var(--text-muted); padding: 1rem;">Memuat data Tree Maps...</div>
+      </div>
+    </section>
+
+    <!-- Detail Data Analysis Grid -->
+    <section class="data-table-container">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Tabel Detail Data Analisis Transaksi</h2>
+        <span class="card-target" id="gridCountBadge">0 Transaksi Terfilter</span>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Bulan</th>
+            <th>Jenis MTM</th>
+            <th>Cabang</th>
+            <th>MTM Alias</th>
+            <th>Grup Brand</th>
+            <th>Nama Item</th>
+            <th>R_Kirim (IDR)</th>
+            <th>RP_Realisasi (IDR)</th>
+            <th>Alasan Akhir</th>
+          </tr>
+        </thead>
+        <tbody id="gridTbody">
+          <tr>
+            <td colspan="9" style="text-align: center; color: var(--text-muted);">Memuat data transaksi...</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="loginModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Login Sistem Konimex</h3>
+        <button class="btn-action btn-outline" id="btnCloseLoginModal" style="padding: 0.2rem 0.5rem;">✕</button>
+      </div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="usernameInput">Username</label>
+          <input type="text" id="usernameInput" class="filter-input" placeholder="admin / konimex" required>
+        </div>
+        <div class="form-group">
+          <label for="passwordInput">Password</label>
+          <input type="password" id="passwordInput" class="filter-input" placeholder="konimex123" required>
+        </div>
+        <div id="loginError" style="color: #FF4D4D; font-size: 0.8rem; margin-bottom: 1rem; display: none;"></div>
+        <button type="submit" class="btn-action btn-primary" style="width: 100%;">Masuk Sesi</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- PowerPoint Export Selection Modal -->
+  <div class="modal-overlay" id="exportModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Otomasi Ekspor PowerPoint (PPT)</h3>
+        <button class="btn-action btn-outline" id="btnCloseExportModal" style="padding: 0.2rem 0.5rem;">✕</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Pilih modul tampilan yang ingin diekspor ke format PPT. Layout dipastikan presisi dan tidak menimpa logo Konimex di kanan atas template.
+      </p>
+      <form id="exportForm">
+        <div class="form-group" style="display: flex; gap: 0.5rem; align-items: center;">
+          <input type="checkbox" id="chkKpiSummary" checked>
+          <label for="chkKpiSummary" style="margin: 0; color: white;">Executive KPI & Monthly Trend</label>
+        </div>
+        <div class="form-group" style="display: flex; gap: 0.5rem; align-items: center;">
+          <input type="checkbox" id="chkParetoSheets" checked>
+          <label for="chkParetoSheets" style="margin: 0; color: white;">Pareto Tree Maps (5 Sheets)</label>
+        </div>
+        <div class="form-group" style="display: flex; gap: 0.5rem; align-items: center;">
+          <input type="checkbox" id="chkDetailGrid" checked>
+          <label for="chkDetailGrid" style="margin: 0; color: white;">Detail Data Grid Table</label>
+        </div>
+        <button type="submit" class="btn-action btn-primary" id="btnConfirmExport" style="width: 100%; margin-top: 1rem;">
+          Unduh Laporan PPT
+        </button>
+      </form>
+  <!-- Upload Dataset Modal -->
+  <div class="modal-overlay" id="uploadModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📁 Upload Dataset MTM Baru (.xlsx)</h3>
+        <button class="btn-action btn-outline" id="btnCloseUploadModal" style="padding: 0.2rem 0.5rem;">✕</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Unggah file Excel <code>.xlsx</code> baru untuk memperbarui seluruh data transaksi dashboard secara otomatis.
+      </p>
+      <form id="uploadForm">
+        <div class="form-group">
+          <label style="color: white; font-weight: 600; margin-bottom: 0.5rem; display: block;">Pilih File Excel (.xlsx)</label>
+          <input type="file" id="datasetFileInput" accept=".xlsx" style="color: white; width: 100%;">
+        </div>
+        <div id="uploadProgressMsg" style="display: none; font-size: 0.85rem; color: var(--konimex-gold); margin-top: 0.75rem;">
+          ⏳ Memproses file & mengindeks database SQLite...
+        </div>
+        <button type="submit" class="btn-action btn-gold" id="btnConfirmUpload" style="width: 100%; margin-top: 1rem;">
+          Unggah & Rebuild Data
+        </button>
+      </form>
+    </div>
+  </div>
+  </div> <!-- End #appDashboardContent -->
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
+
+
+
