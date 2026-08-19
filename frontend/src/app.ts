@@ -167,24 +167,9 @@ class DashboardApp {
     });
 
     // Pareto Switcher Mode (Unfulfill vs All)
-    const btnParetoUnfulfill = document.getElementById('btnParetoUnfulfill');
-    const btnParetoAll = document.getElementById('btnParetoAll');
+    // Pareto Mode strictly defaults to Unfulfill Problem Analysis
+    this.isParetoUnfulfill = true;
 
-    btnParetoUnfulfill?.addEventListener('click', () => {
-      btnParetoUnfulfill.classList.add('active');
-      btnParetoAll?.classList.remove('active');
-      this.isParetoUnfulfill = true;
-      this.fetchParetoData();
-      this.fetchGridData();
-    });
-
-    btnParetoAll?.addEventListener('click', () => {
-      btnParetoAll.classList.add('active');
-      btnParetoUnfulfill?.classList.remove('active');
-      this.isParetoUnfulfill = false;
-      this.fetchParetoData();
-      this.fetchGridData();
-    });
 
     // Pareto Tabs
     const tabs = document.querySelectorAll('.pareto-tab');
@@ -197,6 +182,21 @@ class DashboardApp {
         this.fetchParetoData();
         this.fetchGridData();
       });
+    });
+
+    // Global listener to deselect treemap cross-filter when clicking outside treemap tiles
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      const insideTreemapSection = target.closest('.pareto-container') || target.closest('#treemapGrid');
+      const insideTile = target.closest('.tableau-tile');
+      const insideSelect = target.closest('.custom-select-container');
+      const insideModal = target.closest('.modal-overlay');
+
+      if (insideTreemapSection && !insideTile && !insideSelect && !insideModal) {
+        this.clearParetoCrossFilter();
+      }
     });
 
 
@@ -266,56 +266,223 @@ class DashboardApp {
     const btnCloseUpload = document.getElementById('btnCloseUploadModal');
     const uploadForm = document.getElementById('uploadForm');
 
-    btnOpenUpload?.addEventListener('click', () => {
+    btnOpenUpload?.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (uploadModal) uploadModal.style.display = 'flex';
+      const monthInput = document.getElementById('uploadDeliveryMonth') as HTMLInputElement;
+      if (monthInput) {
+        let activeM = this.activeFilters.month;
+        if (!activeM || !/^\d{4}-\d{2}$/.test(activeM)) {
+          activeM = '2026-08';
+        }
+        monthInput.value = activeM;
+      }
+      const passInput = document.getElementById('uploadPasswordInput') as HTMLInputElement;
+      if (passInput) passInput.value = '';
+
+      const progressWrapper = document.getElementById('uploadProgressWrapper');
+      if (progressWrapper) progressWrapper.style.display = 'none';
+      const progressBar = document.getElementById('uploadProgressBar');
+      if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.style.background = 'linear-gradient(90deg, #D97706 0%, #FBBF24 50%, #10B981 100%)';
+      }
+
+      const statusMsg = document.getElementById('uploadStatusMsg');
+      if (statusMsg) statusMsg.style.display = 'none';
     });
 
     btnCloseUpload?.addEventListener('click', () => {
       if (uploadModal) uploadModal.style.display = 'none';
     });
 
+    uploadModal?.addEventListener('click', (e) => {
+      if (e.target === uploadModal) {
+        uploadModal.style.display = 'none';
+      }
+    });
+
     uploadForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const monthInput = document.getElementById('uploadDeliveryMonth') as HTMLInputElement;
       const fileInput = document.getElementById('datasetFileInput') as HTMLInputElement;
-      const progressMsg = document.getElementById('uploadProgressMsg');
+      const passInput = document.getElementById('uploadPasswordInput') as HTMLInputElement;
+      const statusMsg = document.getElementById('uploadStatusMsg');
       const btnConfirm = document.getElementById('btnConfirmUpload') as HTMLButtonElement;
 
+      const progressWrapper = document.getElementById('uploadProgressWrapper');
+      const progressStage = document.getElementById('uploadProgressStage');
+      const progressPercent = document.getElementById('uploadProgressPercent');
+      const progressBar = document.getElementById('uploadProgressBar');
+
+      const updateProgress = (percent: number, stageText: string, isError = false, isSuccess = false) => {
+        if (progressWrapper) progressWrapper.style.display = 'block';
+        if (progressPercent) progressPercent.textContent = `${percent}%`;
+        if (progressBar) {
+          progressBar.style.width = `${percent}%`;
+          if (isError) {
+            progressBar.style.background = '#EF4444';
+            progressBar.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.6)';
+          } else if (isSuccess) {
+            progressBar.style.background = '#10B981';
+            progressBar.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.6)';
+          } else {
+            progressBar.style.background = 'linear-gradient(90deg, #D97706 0%, #FBBF24 50%, #10B981 100%)';
+            progressBar.style.boxShadow = '0 0 10px rgba(251, 191, 36, 0.6)';
+          }
+        }
+        if (progressStage && stageText) {
+          progressStage.textContent = stageText;
+          if (isError) progressStage.style.color = '#FCA5A5';
+          else if (isSuccess) progressStage.style.color = '#34D399';
+          else progressStage.style.color = '#FDE047';
+        }
+      };
+
+      const periodeInput = document.getElementById('uploadPeriodeInput') as HTMLInputElement;
+      const targetMonth = periodeInput ? periodeInput.value.trim() : '2026-08';
+      const targetYear = targetMonth.split('-')[0] || '2026';
+      const targetMonthVal = targetMonth.split('-')[1] || '08';
+      const uploadPassword = passInput ? passInput.value.trim() : '';
+
+      if (!targetMonth) {
+        updateProgress(0, '❌ Harap pilih Periode Data terlebih dahulu.', true);
+        return;
+      }
+
       if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-        alert('Silakan pilih file Excel (.xlsx) terlebih dahulu.');
+        updateProgress(0, '❌ Silakan pilih file Excel (.xlsx) terlebih dahulu.', true);
+        return;
+      }
+
+      if (!uploadPassword) {
+        updateProgress(0, '❌ Harap masukkan Password Akses Upload terlebih dahulu.', true);
+        return;
+      }
+
+      if (uploadPassword !== 'Adelle@0403') {
+        updateProgress(0, '❌ Password Akses Upload salah! Masukkan Adelle@0403.', true);
         return;
       }
 
       const file = fileInput.files[0];
       if (btnConfirm) {
         btnConfirm.disabled = true;
-        btnConfirm.textContent = 'Mengunggah File...';
+        btnConfirm.textContent = 'Memproses Upload Data...';
       }
-      if (progressMsg) progressMsg.style.display = 'block';
+      if (statusMsg) statusMsg.style.display = 'none';
 
+      updateProgress(5, `⏳ 1/3 Mengunggah file Excel (5%)...`);
+
+      let simulatedInterval: any = null;
       try {
-        const fileBytes = await file.arrayBuffer();
-        const res = await fetch(`${this.apiBaseUrl}/api/data/upload`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: fileBytes
+        const formData = new FormData();
+        formData.append('target_year', targetYear);
+        formData.append('target_month_num', targetMonthVal);
+        formData.append('target_month', targetMonth);
+        formData.append('password', uploadPassword);
+        formData.append('file', file);
+
+        const url = `${this.apiBaseUrl}/api/data/upload?target_month=${encodeURIComponent(targetMonth)}&target_year=${encodeURIComponent(targetYear)}&target_month_num=${encodeURIComponent(targetMonthVal)}`;
+        
+        const uploadResult: any = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', url, true);
+          xhr.setRequestHeader('X-Target-Year', targetYear);
+          xhr.setRequestHeader('X-Target-Month', targetMonth);
+          xhr.setRequestHeader('X-Upload-Password', uploadPassword);
+
+          const startSimulatedProcessing = () => {
+            if (simulatedInterval) return;
+            let currentPct = 71;
+            updateProgress(71, `⏳ 2/3 Membaca & memverifikasi baris Excel periode ${targetMonth}...`);
+            simulatedInterval = setInterval(() => {
+              if (currentPct < 98) {
+                currentPct += 1;
+                if (currentPct >= 86) {
+                  updateProgress(currentPct, `⏳ 3/3 Memperbarui database & indeks transaksi periode ${targetMonth}...`);
+                } else {
+                  updateProgress(currentPct, `⏳ 2/3 Membaca & memverifikasi baris Excel periode ${targetMonth}...`);
+                }
+              }
+            }, 120);
+          };
+
+          xhr.upload.addEventListener('progress', (ev) => {
+            if (ev.lengthComputable) {
+              const rawRatio = ev.loaded / ev.total;
+              const uploadPct = Math.min(70, Math.max(5, Math.round(rawRatio * 70)));
+              updateProgress(uploadPct, `⏳ 1/3 Mengunggah file Excel (${uploadPct}%)...`);
+
+              if (rawRatio >= 0.98 || uploadPct >= 69) {
+                startSimulatedProcessing();
+              }
+            }
+          });
+
+          xhr.upload.addEventListener('load', () => {
+            startSimulatedProcessing();
+          });
+
+          xhr.onload = () => {
+            if (simulatedInterval) clearInterval(simulatedInterval);
+            try {
+              const json = JSON.parse(xhr.responseText);
+              resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json });
+            } catch (err) {
+              reject(new Error('Format respon server tidak valid.'));
+            }
+          };
+
+          xhr.onerror = () => {
+            if (simulatedInterval) clearInterval(simulatedInterval);
+            reject(new Error('Koneksi server terputus.'));
+          };
+
+          xhr.send(formData);
         });
 
-        const json = await res.json();
-        if (res.ok && json.status === 'success') {
-          alert('Berhasil! Dataset Excel telah diunggah dan database SQLite berhasil diindeks ulang.');
-          if (uploadModal) uploadModal.style.display = 'none';
-          this.loadFilterOptions();
+        const json = uploadResult.json;
+        if (uploadResult.ok && json.status === 'success') {
+          updateProgress(100, `✅ 100% Selesai! ${json.message}`, false, true);
+          if (statusMsg) {
+            statusMsg.style.display = 'block';
+            statusMsg.style.background = 'rgba(16, 185, 129, 0.18)';
+            statusMsg.style.border = '1px solid #10B981';
+            statusMsg.style.color = '#34D399';
+            statusMsg.innerHTML = `✅ <strong>Berhasil!</strong> ${json.message}`;
+          }
+          setTimeout(() => {
+            if (uploadModal) uploadModal.style.display = 'none';
+            this.activeFilters.month = targetMonth;
+            this.loadFilterOptions();
+            this.refreshDashboardData();
+          }, 1800);
         } else {
-          throw new Error(json.message || 'Gagal mengunggah file.');
+          updateProgress(100, `❌ Gagal: ${json?.message || 'Verifikasi data gagal.'}`, true, false);
+          if (statusMsg) {
+            statusMsg.style.display = 'block';
+            statusMsg.style.background = 'rgba(239, 68, 68, 0.18)';
+            statusMsg.style.border = '1px solid #EF4444';
+            statusMsg.style.color = '#FCA5A5';
+            statusMsg.innerHTML = `❌ <strong>Gagal:</strong> ${json?.message || 'Terjadi kesalahan saat mengunggah.'}`;
+          }
         }
       } catch (err: any) {
-        alert(err.message || 'Gagal mengunggah file Excel.');
+        if (simulatedInterval) clearInterval(simulatedInterval);
+        updateProgress(100, `❌ Gagal: ${err.message}`, true, false);
+        if (statusMsg) {
+          statusMsg.style.display = 'block';
+          statusMsg.style.background = 'rgba(239, 68, 68, 0.18)';
+          statusMsg.style.border = '1px solid #EF4444';
+          statusMsg.style.color = '#FCA5A5';
+          statusMsg.innerHTML = `❌ <strong>Error:</strong> ${err.message}`;
+        }
       } finally {
         if (btnConfirm) {
           btnConfirm.disabled = false;
-          btnConfirm.textContent = 'Unggah & Rebuild Data';
+          btnConfirm.textContent = '⚡ Verifikasi & Update Data Periode';
         }
-        if (progressMsg) progressMsg.style.display = 'none';
       }
     });
   }
@@ -326,20 +493,22 @@ class DashboardApp {
     const btn = document.getElementById('btnLoginLogout');
     const btnUpload = document.getElementById('btnOpenUploadModal');
 
+    if (btnUpload) {
+      btnUpload.style.display = 'inline-flex';
+    }
+
     if (user) {
       if (badge) {
         badge.textContent = `${user.role.toUpperCase()}: ${user.username}`;
         badge.className = `role-badge ${user.role}`;
       }
       if (btn) btn.textContent = 'Logout';
-      if (btnUpload) btnUpload.style.display = user.can_upload ? 'inline-flex' : 'none';
     } else {
       if (badge) {
-        badge.textContent = 'GUEST';
-        badge.className = 'role-badge user';
+        badge.textContent = 'ADMIN';
+        badge.className = 'role-badge admin';
       }
       if (btn) btn.textContent = 'Login';
-      if (btnUpload) btnUpload.style.display = 'none';
     }
   }
 
@@ -851,15 +1020,16 @@ class DashboardApp {
     legendBar.className = 'tableau-legend-bar';
     legendBar.innerHTML = `
       <div style="font-size: 0.75rem; font-weight: 700; color: #FFFFFF; display:flex; align-items:center; gap:0.4rem;">
-        <span style="color: var(--konimex-gold);">📊</span> TABLEAU VISUAL HEATMAP LEGEND:
+        <span style="color: var(--konimex-gold);">📊</span> LEGENDA INTENSITAS PARETO:
       </div>
       <div class="tableau-legend-items">
-        <div><span class="tableau-legend-dot" style="background: #DC2626; box-shadow: 0 0 6px #F87171;"></span> ⭐ Top #1 (Dominan Raksasa)</div>
+        <div><span class="tableau-legend-dot" style="background: #DC2626; box-shadow: 0 0 6px #F87171;"></span> ⭐ Top #1 (Dominan)</div>
         <div><span class="tableau-legend-dot" style="background: #EA580C; box-shadow: 0 0 6px #FB923C;"></span> 🔥 Top #2-#3 (Dampak Tinggi)</div>
         <div><span class="tableau-legend-dot" style="background: #D97706; box-shadow: 0 0 6px #FBBF24;"></span> 🟨 Vital 80% (Dampak Menengah)</div>
         <div><span class="tableau-legend-dot" style="background: #1D4ED8; box-shadow: 0 0 6px #60A5FA;"></span> 🟦 Minor (< 20%)</div>
       </div>
     `;
+
 
     execWrap.appendChild(legendBar);
 
@@ -936,7 +1106,8 @@ class DashboardApp {
         </div>
       `;
 
-      tile.addEventListener('click', () => {
+      tile.addEventListener('click', (e) => {
+        e.stopPropagation();
         this.handleTreemapClick(it.name);
       });
 
@@ -945,10 +1116,75 @@ class DashboardApp {
 
     execWrap.appendChild(flexGrid);
     container.appendChild(execWrap);
+
+    this.updateCrossFilterBadge();
   }
 
+  private clearParetoCrossFilter(): void {
+    let changed = false;
+    if (this.activeFilters.reason) {
+      delete this.activeFilters.reason;
+      changed = true;
+    }
+    if (this.activeFilters.branches && this.activeFilters.branches.length > 0) {
+      this.activeFilters.branches = [];
+      changed = true;
+    }
+    if (this.activeFilters.mtm_aliases && this.activeFilters.mtm_aliases.length > 0) {
+      this.activeFilters.mtm_aliases = [];
+      changed = true;
+    }
+    if (this.activeFilters.brand_groups && this.activeFilters.brand_groups.length > 0) {
+      this.activeFilters.brand_groups = [];
+      changed = true;
+    }
+    if (this.activeFilters.items && this.activeFilters.items.length > 0) {
+      this.activeFilters.items = [];
+      changed = true;
+    }
 
+    if (changed) {
+      this.updateCrossFilterBadge();
+      this.refreshDashboardData();
+    }
+  }
 
+  private updateCrossFilterBadge(): void {
+    const badge = document.getElementById('crossFilterBadge');
+    if (!badge) return;
+
+    let activeFilterName = '';
+    if (this.activeParetoDimension === 'alasan' && this.activeFilters.reason) {
+      activeFilterName = this.activeFilters.reason;
+    } else if (this.activeParetoDimension === 'cabang' && this.activeFilters.branches && this.activeFilters.branches.length > 0) {
+      activeFilterName = this.activeFilters.branches[0];
+    } else if (this.activeParetoDimension === 'mtm_alias' && this.activeFilters.mtm_aliases && this.activeFilters.mtm_aliases.length > 0) {
+      activeFilterName = this.activeFilters.mtm_aliases[0];
+    } else if (this.activeParetoDimension === 'grup_brand' && this.activeFilters.brand_groups && this.activeFilters.brand_groups.length > 0) {
+      activeFilterName = this.activeFilters.brand_groups[0];
+    } else if (this.activeParetoDimension === 'item' && this.activeFilters.items && this.activeFilters.items.length > 0) {
+      activeFilterName = this.activeFilters.items[0];
+    }
+
+    if (activeFilterName) {
+      badge.style.background = 'rgba(234, 179, 8, 0.2)';
+      badge.style.borderColor = '#EAB308';
+      badge.style.color = '#FDE047';
+      badge.innerHTML = `🔍 Filter Aktif: <strong>${activeFilterName}</strong> <span style="margin-left: 4px; background: rgba(0,0,0,0.3); padding: 1px 6px; border-radius: 8px;">(Klik luar / di sini untuk melepas ✕)</span>`;
+      badge.style.cursor = 'pointer';
+      badge.onclick = (e) => {
+        e.stopPropagation();
+        this.clearParetoCrossFilter();
+      };
+    } else {
+      badge.style.background = 'rgba(255, 255, 255, 0.05)';
+      badge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      badge.style.color = 'var(--text-muted)';
+      badge.innerHTML = 'Klik kotak Treemap untuk Cross-Filter';
+      badge.style.cursor = 'default';
+      badge.onclick = null;
+    }
+  }
 
   private handleTreemapClick(itemName: string): void {
     if (this.activeParetoDimension === 'alasan') {
@@ -962,6 +1198,7 @@ class DashboardApp {
     } else if (this.activeParetoDimension === 'item') {
       this.activeFilters.items = this.activeFilters.items.includes(itemName) ? [] : [itemName];
     }
+    this.updateCrossFilterBadge();
     this.refreshDashboardData();
   }
 

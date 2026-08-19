@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="src/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <!-- Mandatory Login Gate Page (Hidden) -->
@@ -53,8 +53,6 @@
           </div>
         </div>
         <button class="btn-action btn-primary" id="btnOpenExportModal">📊 Ekspor PPT</button>
-        <button class="btn-action btn-gold" id="btnOpenUploadModal">📁 Upload Data</button>
-        <span class="role-badge admin" id="userRoleBadge">ADMIN</span>
       </div>
     </header>
 
@@ -70,7 +68,7 @@
         <div class="filter-panel-title">
           <span class="panel-icon">🎛️</span>
           <span class="panel-title-text">GLOBAL ANALYTICS FILTERS</span>
-          <span class="panel-badge">6 Dimensions Linked</span>
+          <span class="panel-badge">7 Dimensions Linked</span>
         </div>
         <button class="btn-action btn-outline filter-reset-btn" id="btnResetFilter">
           <span class="reset-icon">🔄</span> Reset Filter
@@ -175,6 +173,23 @@
             </div>
             <select id="filterItem" class="filter-select" style="display:none;">
               <option value="">Semua Produk / Item</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label><span class="label-icon">⚠️</span> Alasan Unfulfill</label>
+          <div class="custom-select-container" id="containerReason">
+            <div class="custom-select-trigger">
+              <span class="custom-select-text">Semua Alasan</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-menu">
+              <input type="text" class="custom-search-input" placeholder="🔍 Cari Alasan Unfulfill...">
+              <div class="custom-options-list"></div>
+            </div>
+            <select id="filterReason" class="filter-select" style="display:none;">
+              <option value="">Semua Alasan</option>
             </select>
           </div>
         </div>
@@ -302,15 +317,11 @@
     <section class="pareto-container">
 
       <div class="pareto-header">
-        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
-          <span style="font-size:1.1rem;">🗺️</span>
-          <h2 style="margin:0;">Analisis Unfulfill Tree Maps (Pareto Focus)</h2>
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <span style="font-size: 1.2rem;">🗺️</span>
+          <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700;">Analisis Unfulfill Tree Maps (Pareto Focus)</h2>
           <span class="card-target" id="crossFilterBadge">Klik kotak Treemap untuk Cross-Filter</span>
-
-        </div>
-        <div class="switcher-toggle" style="width: auto;">
-          <button class="switcher-btn active" id="btnParetoUnfulfill">⚠️ Pareto Unfulfill / Masalah</button>
-          <button class="switcher-btn" id="btnParetoAll">📊 Total Komposisi (All)</button>
+          <span style="font-size: 0.75rem; font-weight: 700; color: #EF4444; background: rgba(220,38,38,0.18); border: 1px solid #F87171; padding: 0.25rem 0.65rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 0.3rem;">⚠️ Pareto Unfulfill Focus</span>
         </div>
       </div>
 
@@ -322,6 +333,7 @@
         <button class="pareto-tab" data-dim="grup_brand">Grup Brand</button>
         <button class="pareto-tab" data-dim="item">Item / Nama Item</button>
       </div>
+
 
 
       <!-- Treemap Proportional Tile Grid -->
@@ -412,33 +424,12 @@
           Unduh Laporan PPT
         </button>
       </form>
-  <!-- Upload Dataset Modal -->
-  <div class="modal-overlay" id="uploadModal" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>📁 Upload Dataset MTM Baru (.xlsx)</h3>
-        <button class="btn-action btn-outline" id="btnCloseUploadModal" style="padding: 0.2rem 0.5rem;">✕</button>
-      </div>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-        Unggah file Excel <code>.xlsx</code> baru untuk memperbarui seluruh data transaksi dashboard secara otomatis.
-      </p>
-      <form id="uploadForm">
-        <div class="form-group">
-          <label style="color: white; font-weight: 600; margin-bottom: 0.5rem; display: block;">Pilih File Excel (.xlsx)</label>
-          <input type="file" id="datasetFileInput" accept=".xlsx" style="color: white; width: 100%;">
-        </div>
-        <div id="uploadProgressMsg" style="display: none; font-size: 0.85rem; color: var(--konimex-gold); margin-top: 0.75rem;">
-          ⏳ Memproses file & mengindeks database SQLite...
-        </div>
-        <button type="submit" class="btn-action btn-gold" id="btnConfirmUpload" style="width: 100%; margin-top: 1rem;">
-          Unggah & Rebuild Data
-        </button>
-      </form>
     </div>
   </div>
+
   </div> <!-- End #appDashboardContent -->
 
-  <script type="module" src="src/app.js"></script>
+  <script type="module" src="src/app.js?v=20260819_v35"></script>
 </body>
 </html>
 

@@ -28,4 +28,5 @@ Thumbs.db
 # Temporary generated files
 downloaded_api_test.pptx
 test_generated_report.pptx
+*.pptx
 ~$*

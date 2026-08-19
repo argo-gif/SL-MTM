@@ -3,7 +3,7 @@ import { AuthController } from './auth.js';
 class DashboardApp {
   constructor() {
     this.authController = new AuthController();
-    this.apiBaseUrl = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.startsWith('file')) ? window.location.origin : 'http://127.0.0.1:5000';
+    this.apiBaseUrl = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.startsWith('file')) ? '' : 'http://127.0.0.1:5000';
 
     this.activeFilters = {
       months: [],
@@ -18,6 +18,7 @@ class DashboardApp {
     };
     this.activeParetoDimension = 'alasan';
     this.isParetoUnfulfill = true;
+    this.treemapCrossFilter = null;
 
     this.initDOM();
 
@@ -151,25 +152,34 @@ class DashboardApp {
 
     // Reset Filters
     document.getElementById('btnResetFilter')?.addEventListener('click', () => {
-      this.activeFilters.months = [];
-      this.activeFilters.month = '';
-      this.activeFilters.mtm_types = ['KA'];
-      this.activeFilters.mtm_type = 'KA';
-      this.activeFilters.branches = [];
-      this.activeFilters.mtm_aliases = [];
-      this.activeFilters.brand_groups = [];
-      this.activeFilters.items = [];
-      delete this.activeFilters.reason;
+      const defaultM = this.latestMonthDefault || '2026-08';
+      const defaultT = this.defaultMTMTypeDefault || 'KA';
+
+      this.activeFilters = {
+        months: [defaultM],
+        month: defaultM,
+        mtm_types: [defaultT],
+        mtm_type: defaultT,
+        branches: [],
+        mtm_aliases: [],
+        brand_groups: [],
+        items: [],
+        reasons: [],
+        metric_type: this.activeFilters.metric_type || 'idr'
+      };
+      this.treemapCrossFilter = null;
 
       document.querySelectorAll('.custom-option-checkbox').forEach(cb => cb.checked = false);
+      document.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
 
       const resetMap = {
-        'filterMonth': 'Semua Bulan (All Months)',
-        'filterMTMType': 'KA',
+        'filterMonth': this.formatMonthLabel(defaultM),
+        'filterMTMType': defaultT,
         'filterBranch': 'Semua Cabang',
         'filterAlias': 'Semua Alias',
         'filterBrandGroup': 'Semua Grup Brand',
-        'filterItem': 'Semua Produk / Item'
+        'filterItem': 'Semua Produk / Item',
+        'filterReason': 'Semua Alasan'
       };
 
       Object.entries(resetMap).forEach(([id, text]) => {
@@ -181,28 +191,14 @@ class DashboardApp {
         }
       });
 
+      this.updateCrossFilterBadge();
+      this.updateCascadingDropdowns();
       this.refreshDashboardData();
     });
 
-    // Pareto Switcher Mode (Unfulfill vs All)
-    const btnParetoUnfulfill = document.getElementById('btnParetoUnfulfill');
-    const btnParetoAll = document.getElementById('btnParetoAll');
+    // Pareto Mode strictly defaults to Unfulfill Problem Analysis
+    this.isParetoUnfulfill = true;
 
-    btnParetoUnfulfill?.addEventListener('click', () => {
-      btnParetoUnfulfill.classList.add('active');
-      btnParetoAll?.classList.remove('active');
-      this.isParetoUnfulfill = true;
-      this.fetchParetoData();
-      this.fetchGridData();
-    });
-
-    btnParetoAll?.addEventListener('click', () => {
-      btnParetoAll.classList.add('active');
-      btnParetoUnfulfill?.classList.remove('active');
-      this.isParetoUnfulfill = false;
-      this.fetchParetoData();
-      this.fetchGridData();
-    });
 
     // Pareto Tabs
     const tabs = document.querySelectorAll('.pareto-tab');
@@ -284,56 +280,266 @@ class DashboardApp {
     const btnCloseUpload = document.getElementById('btnCloseUploadModal');
     const uploadForm = document.getElementById('uploadForm');
 
-    btnOpenUpload?.addEventListener('click', () => {
+    btnOpenUpload?.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (uploadModal) uploadModal.style.display = 'flex';
+      const monthInput = document.getElementById('uploadDeliveryMonth');
+      if (monthInput) {
+        let activeM = this.activeFilters.month;
+        if (!activeM || !/^\d{4}-\d{2}$/.test(activeM)) {
+          activeM = '2026-08';
+        }
+        monthInput.value = activeM;
+      }
+      const passInput = document.getElementById('uploadPasswordInput');
+      if (passInput) passInput.value = '';
+
+      const progressWrapper = document.getElementById('uploadProgressWrapper');
+      if (progressWrapper) progressWrapper.style.display = 'none';
+      const progressBar = document.getElementById('uploadProgressBar');
+      if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.style.background = 'linear-gradient(90deg, #D97706 0%, #FBBF24 50%, #10B981 100%)';
+      }
+
+      const statusMsg = document.getElementById('uploadStatusMsg');
+      if (statusMsg) statusMsg.style.display = 'none';
     });
 
     btnCloseUpload?.addEventListener('click', () => {
       if (uploadModal) uploadModal.style.display = 'none';
     });
 
+    uploadModal?.addEventListener('click', (e) => {
+      if (e.target === uploadModal) {
+        uploadModal.style.display = 'none';
+      }
+    });
+
     uploadForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const monthInput = document.getElementById('uploadDeliveryMonth');
       const fileInput = document.getElementById('datasetFileInput');
-      const progressMsg = document.getElementById('uploadProgressMsg');
+      const passInput = document.getElementById('uploadPasswordInput');
+      const statusMsg = document.getElementById('uploadStatusMsg');
       const btnConfirm = document.getElementById('btnConfirmUpload');
 
+      const progressWrapper = document.getElementById('uploadProgressWrapper');
+      const progressStage = document.getElementById('uploadProgressStage');
+      const progressPercent = document.getElementById('uploadProgressPercent');
+      const progressBar = document.getElementById('uploadProgressBar');
+
+      const updateProgress = (percent, stageText, isError = false, isSuccess = false) => {
+        if (progressWrapper) progressWrapper.style.display = 'block';
+        if (progressPercent) progressPercent.textContent = `${percent}%`;
+        if (progressBar) {
+          progressBar.style.width = `${percent}%`;
+          if (isError) {
+            progressBar.style.background = '#EF4444';
+            progressBar.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.6)';
+          } else if (isSuccess) {
+            progressBar.style.background = '#10B981';
+            progressBar.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.6)';
+          } else {
+            progressBar.style.background = 'linear-gradient(90deg, #D97706 0%, #FBBF24 50%, #10B981 100%)';
+            progressBar.style.boxShadow = '0 0 10px rgba(251, 191, 36, 0.6)';
+          }
+        }
+        if (progressStage && stageText) {
+          progressStage.textContent = stageText;
+          if (isError) progressStage.style.color = '#FCA5A5';
+          else if (isSuccess) progressStage.style.color = '#34D399';
+          else progressStage.style.color = '#FDE047';
+        }
+      };
+
+      const periodeInput = document.getElementById('uploadPeriodeInput');
+      const targetMonth = periodeInput ? periodeInput.value.trim() : '2026-08';
+      const targetYear = targetMonth.split('-')[0] || '2026';
+      const targetMonthVal = targetMonth.split('-')[1] || '08';
+      const uploadPassword = passInput ? passInput.value.trim() : '';
+
+      if (!targetMonth) {
+        updateProgress(0, '❌ Harap pilih Periode Data terlebih dahulu.', true);
+        return;
+      }
+
       if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-        alert('Silakan pilih file Excel (.xlsx) terlebih dahulu.');
+        updateProgress(0, '❌ Silakan pilih file Excel (.xlsx) terlebih dahulu.', true);
+        return;
+      }
+
+      if (!uploadPassword) {
+        updateProgress(0, '❌ Harap masukkan Password Akses Upload terlebih dahulu.', true);
+        return;
+      }
+
+      if (uploadPassword !== 'Adelle@0403') {
+        updateProgress(0, '❌ Password Akses Upload salah! Masukkan Adelle@0403.', true);
         return;
       }
 
       const file = fileInput.files[0];
       if (btnConfirm) {
         btnConfirm.disabled = true;
-        btnConfirm.textContent = 'Mengunggah File...';
+        btnConfirm.textContent = 'Memproses Upload Data...';
       }
-      if (progressMsg) progressMsg.style.display = 'block';
+      if (statusMsg) statusMsg.style.display = 'none';
 
+      updateProgress(5, `⏳ 1/3 Mengunggah file Excel (5%)...`);
+
+      let simulatedInterval = null;
       try {
-        const fileBytes = await file.arrayBuffer();
-        const res = await fetch(`${this.apiBaseUrl}/api/data/upload`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: fileBytes
+        const formData = new FormData();
+        formData.append('target_year', targetYear);
+        formData.append('target_month_num', targetMonthVal);
+        formData.append('target_month', targetMonth);
+        formData.append('password', uploadPassword);
+        formData.append('file', file);
+
+        const url = `${this.apiBaseUrl}/api/data/upload?target_month=${encodeURIComponent(targetMonth)}&target_year=${encodeURIComponent(targetYear)}&target_month_num=${encodeURIComponent(targetMonthVal)}`;
+        
+        const uploadResult = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', url, true);
+          xhr.setRequestHeader('X-Target-Year', targetYear);
+          xhr.setRequestHeader('X-Target-Month', targetMonth);
+          xhr.setRequestHeader('X-Upload-Password', uploadPassword);
+
+          const startSimulatedProcessing = () => {
+            if (simulatedInterval) return;
+            let currentPct = 71;
+            updateProgress(71, `⏳ 2/3 Membaca & memverifikasi baris Excel periode ${targetMonth}...`);
+            simulatedInterval = setInterval(() => {
+              if (currentPct < 98) {
+                currentPct += 1;
+                if (currentPct >= 86) {
+                  updateProgress(currentPct, `⏳ 3/3 Memperbarui database & indeks transaksi periode ${targetMonth}...`);
+                } else {
+                  updateProgress(currentPct, `⏳ 2/3 Membaca & memverifikasi baris Excel periode ${targetMonth}...`);
+                }
+              }
+            }, 120);
+          };
+
+          xhr.upload.addEventListener('progress', (ev) => {
+            if (ev.lengthComputable) {
+              const rawRatio = ev.loaded / ev.total;
+              const uploadPct = Math.min(70, Math.max(5, Math.round(rawRatio * 70)));
+              updateProgress(uploadPct, `⏳ 1/3 Mengunggah file Excel (${uploadPct}%)...`);
+
+              if (rawRatio >= 0.98 || uploadPct >= 69) {
+                startSimulatedProcessing();
+              }
+            }
+          });
+
+          xhr.upload.addEventListener('load', () => {
+            startSimulatedProcessing();
+          });
+
+          xhr.timeout = 180000;
+          xhr.ontimeout = () => {
+            if (simulatedInterval) clearInterval(simulatedInterval);
+            reject(new Error('Waktu pengunggahan habis (Timeout 3 min). Silakan gunakan tombol Fast-Sync File Server di bawah.'));
+          };
+
+          xhr.onload = () => {
+            if (simulatedInterval) clearInterval(simulatedInterval);
+            try {
+              const json = JSON.parse(xhr.responseText);
+              resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json });
+            } catch (err) {
+              reject(new Error('Format respon server tidak valid.'));
+            }
+          };
+
+          xhr.onerror = () => {
+            if (simulatedInterval) clearInterval(simulatedInterval);
+            reject(new Error('Koneksi server terputus.'));
+          };
+
+          xhr.send(formData);
         });
 
-        const json = await res.json();
-        if (res.ok && json.status === 'success') {
-          alert('Berhasil! Dataset Excel telah diunggah dan database SQLite berhasil diindeks ulang.');
-          if (uploadModal) uploadModal.style.display = 'none';
-          this.loadFilterOptions();
+        const json = uploadResult.json;
+        if (uploadResult.ok && json.status === 'success') {
+          updateProgress(100, `✅ 100% Selesai! ${json.message}`, false, true);
+          if (statusMsg) {
+            statusMsg.style.display = 'block';
+            statusMsg.style.background = 'rgba(16, 185, 129, 0.18)';
+            statusMsg.style.border = '1px solid #10B981';
+            statusMsg.style.color = '#34D399';
+            statusMsg.innerHTML = `✅ <strong>Berhasil!</strong> ${json.message}`;
+          }
+          setTimeout(() => {
+            if (uploadModal) uploadModal.style.display = 'none';
+            this.activeFilters.month = targetMonth;
+            this.loadFilterOptions();
+            this.refreshDashboardData();
+          }, 1800);
         } else {
-          throw new Error(json.message || 'Gagal mengunggah file.');
+          updateProgress(100, `❌ Gagal: ${json?.message || 'Verifikasi data gagal.'}`, true, false);
+          if (statusMsg) {
+            statusMsg.style.display = 'block';
+            statusMsg.style.background = 'rgba(239, 68, 68, 0.18)';
+            statusMsg.style.border = '1px solid #EF4444';
+            statusMsg.style.color = '#FCA5A5';
+            statusMsg.innerHTML = `❌ <strong>Gagal:</strong> ${json?.message || 'Terjadi kesalahan saat mengunggah.'}`;
+          }
         }
       } catch (err) {
-        alert(err.message || 'Gagal mengunggah file Excel.');
+        if (simulatedInterval) clearInterval(simulatedInterval);
+        updateProgress(100, `❌ Gagal: ${err.message}`, true, false);
+        if (statusMsg) {
+          statusMsg.style.display = 'block';
+          statusMsg.style.background = 'rgba(239, 68, 68, 0.18)';
+          statusMsg.style.border = '1px solid #EF4444';
+          statusMsg.style.color = '#FCA5A5';
+          statusMsg.innerHTML = `❌ <strong>Gagal:</strong> ${err.message}`;
+        }
       } finally {
         if (btnConfirm) {
           btnConfirm.disabled = false;
-          btnConfirm.textContent = 'Unggah & Rebuild Data';
+          btnConfirm.textContent = '⚡ Upload & Update Data Periode';
         }
-        if (progressMsg) progressMsg.style.display = 'none';
+      }
+    });
+
+    const btnLocalImport = document.getElementById('btnLocalImport');
+    btnLocalImport?.addEventListener('click', async () => {
+      const periodeInput = document.getElementById('uploadPeriodeInput');
+      const targetMonth = periodeInput ? periodeInput.value.trim() : '2026-08';
+      const passInput = document.getElementById('uploadPasswordInput');
+      const uploadPassword = passInput ? passInput.value.trim() : '';
+
+      if (!uploadPassword) {
+        alert('Harap masukkan Password Akses Upload (Adelle@0403)');
+        return;
+      }
+
+      try {
+        btnLocalImport.disabled = true;
+        btnLocalImport.textContent = '🚀 Memproses Fast-Sync...';
+        const res = await fetch(`/api/data/import-local?target_month=${targetMonth}&password=${encodeURIComponent(uploadPassword)}`, {
+          method: 'POST'
+        });
+        const json = await res.json();
+        if (res.ok && json.status === 'success') {
+          alert(`✅ Fast-Sync Sukses (0.1s)!\n${json.message}`);
+          const uploadModal = document.getElementById('uploadModal');
+          if (uploadModal) uploadModal.style.display = 'none';
+          this.activeFilters.month = targetMonth;
+          this.loadFilterOptions();
+          this.refreshDashboardData();
+        } else {
+          alert(`❌ Fast-Sync Gagal: ${json.message}`);
+        }
+      } catch (err) {
+        alert(`❌ Kesalahan: ${err.message}`);
+      } finally {
+        btnLocalImport.disabled = false;
+        btnLocalImport.textContent = '🚀 Fast-Sync File Server (Opsi Kilat 0.1 Detik)';
       }
     });
   }
@@ -344,20 +550,22 @@ class DashboardApp {
     const btn = document.getElementById('btnLoginLogout');
     const btnUpload = document.getElementById('btnOpenUploadModal');
 
+    if (btnUpload) {
+      btnUpload.style.display = 'inline-flex';
+    }
+
     if (user) {
       if (badge) {
         badge.textContent = `${user.role.toUpperCase()}: ${user.username}`;
         badge.className = `role-badge ${user.role}`;
       }
       if (btn) btn.textContent = 'Logout';
-      if (btnUpload) btnUpload.style.display = user.can_upload ? 'inline-flex' : 'none';
     } else {
       if (badge) {
-        badge.textContent = 'GUEST';
-        badge.className = 'role-badge user';
+        badge.textContent = 'ADMIN';
+        badge.className = 'role-badge admin';
       }
       if (btn) btn.textContent = 'Login';
-      if (btnUpload) btnUpload.style.display = 'none';
     }
   }
 
@@ -367,47 +575,165 @@ class DashboardApp {
       const json = await res.json();
       if (res.ok && json.status === 'success') {
         const opts = json.data;
-        this.populateDropdown('filterMonth', opts.months, opts.latest_month);
-        this.populateDropdown('filterMTMType', opts.mtm_types, opts.default_mtm_type);
+        this.latestMonthDefault = opts.latest_month || '2026-08';
+        this.defaultMTMTypeDefault = opts.default_mtm_type || 'KA';
+
+        // 1. Set active filters first so populateDropdown sees selected values
+        this.activeFilters.months = [this.latestMonthDefault];
+        this.activeFilters.month = this.latestMonthDefault;
+        this.activeFilters.mtm_types = [this.defaultMTMTypeDefault];
+        this.activeFilters.mtm_type = this.defaultMTMTypeDefault;
+
+        // 2. Populate dropdowns
+        this.populateDropdown('filterMonth', opts.months, this.latestMonthDefault);
+        this.populateDropdown('filterMTMType', opts.mtm_types, this.defaultMTMTypeDefault);
         this.populateDropdown('filterBranch', opts.branches);
         this.populateDropdown('filterAlias', opts.mtm_aliases);
         this.populateDropdown('filterBrandGroup', opts.brand_groups);
         this.populateDropdown('filterItem', opts.items);
+        this.populateDropdown('filterReason', opts.reasons);
 
-        this.activeFilters.months = [opts.latest_month];
-        this.activeFilters.month = opts.latest_month;
-        this.activeFilters.mtm_types = [opts.default_mtm_type];
-        this.activeFilters.mtm_type = opts.default_mtm_type;
+        // 3. Refresh dashboard data
         this.refreshDashboardData();
       }
     } catch (e) {
-      console.warn('Backend API filter fetch fallback active');
+      console.warn('Backend API filter fetch fallback active', e);
       this.refreshDashboardData();
     }
   }
 
   async updateCascadingDropdowns() {
+    if (this._isUpdatingCascading) return;
+    this._isUpdatingCascading = true;
+
     try {
-      const res = await fetch(`${this.apiBaseUrl}/api/data/filters`);
+      const res = await fetch(`${this.apiBaseUrl}/api/data/filters`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.activeFilters)
+      });
       const json = await res.json();
       if (res.ok && json.status === 'success') {
         const opts = json.data;
-        if (!this.activeFilters.branches || this.activeFilters.branches.length === 0) {
-          this.populateDropdown('filterBranch', opts.branches);
-        }
-        if (!this.activeFilters.mtm_aliases || this.activeFilters.mtm_aliases.length === 0) {
-          this.populateDropdown('filterAlias', opts.mtm_aliases);
-        }
-        if (!this.activeFilters.brand_groups || this.activeFilters.brand_groups.length === 0) {
-          this.populateDropdown('filterBrandGroup', opts.brand_groups);
-        }
-        if (!this.activeFilters.items || this.activeFilters.items.length === 0) {
-          this.populateDropdown('filterItem', opts.items);
-        }
+        const mapping = [
+          { id: 'filterBranch', available: opts.branches, filterKey: 'branches' },
+          { id: 'filterAlias', available: opts.mtm_aliases, filterKey: 'mtm_aliases' },
+          { id: 'filterBrandGroup', available: opts.brand_groups, filterKey: 'brand_groups' },
+          { id: 'filterItem', available: opts.items, filterKey: 'items' },
+          { id: 'filterReason', available: opts.reasons, filterKey: 'reasons' },
+          { id: 'filterMTMType', available: opts.mtm_types, filterKey: 'mtm_types' }
+        ];
+
+        mapping.forEach(({ id, available, filterKey }) => {
+          this.repopulateCascadingOptions(id, available, filterKey);
+        });
       }
     } catch (e) {
       console.warn('Cascading dropdown update error', e);
+    } finally {
+      this._isUpdatingCascading = false;
     }
+  }
+
+  repopulateCascadingOptions(id, availableItems, filterKey) {
+    const select = document.getElementById(id);
+    const container = select?.closest('.custom-select-container');
+    const optionsList = container?.querySelector('.custom-options-list');
+    if (!optionsList || !availableItems) return;
+
+    let activeList = this.activeFilters[filterKey] || [];
+    const activeSet = new Set(activeList);
+
+    if (activeList.length > 0) return;
+
+    const labelMap = {
+      'filterMTMType': 'Semua Jenis MTM',
+      'filterBranch': 'Semua Cabang',
+      'filterAlias': 'Semua Alias',
+      'filterBrandGroup': 'Semua Grup Brand',
+      'filterItem': 'Semua Produk / Item',
+      'filterReason': 'Semua Alasan'
+    };
+    const textEl = container?.querySelector('.custom-select-text');
+
+    const updateDisplayAndFilters = () => {
+      const checkedBoxes = Array.from(optionsList.querySelectorAll('.custom-option-checkbox:checked'));
+      const checkedVals = checkedBoxes.map(cb => cb.value);
+      this.activeFilters[filterKey] = checkedVals;
+
+      if (id === 'filterMTMType') {
+        this.activeFilters.mtm_type = checkedVals.length === 1 ? checkedVals[0] : (checkedVals.length > 1 ? 'ALL' : '');
+      }
+
+      if (textEl) {
+        if (checkedVals.length === 0) textEl.textContent = labelMap[id] || 'Semua';
+        else if (checkedVals.length === 1) textEl.textContent = checkedVals[0];
+        else textEl.textContent = `${checkedVals.length} Terpilih`;
+      }
+
+      this.updateCascadingDropdowns();
+      this.refreshDashboardData();
+    };
+
+    optionsList.innerHTML = '';
+
+    const actionsBar = document.createElement('div');
+    actionsBar.className = 'custom-actions-bar';
+    actionsBar.innerHTML = `
+      <span class="custom-action-link act-select-all">✓ Pilih Semua</span>
+      <span class="custom-action-link act-clear">✕ Bersihkan</span>
+    `;
+    optionsList.appendChild(actionsBar);
+
+    actionsBar.querySelector('.act-select-all').addEventListener('click', (e) => {
+      e.stopPropagation();
+      optionsList.querySelectorAll('.custom-option-checkbox').forEach(cb => cb.checked = true);
+      updateDisplayAndFilters();
+    });
+
+    actionsBar.querySelector('.act-clear').addEventListener('click', (e) => {
+      e.stopPropagation();
+      optionsList.querySelectorAll('.custom-option-checkbox').forEach(cb => cb.checked = false);
+      updateDisplayAndFilters();
+    });
+
+    if (select) select.innerHTML = '';
+
+    availableItems.forEach(it => {
+      const opt = document.createElement('option');
+      opt.value = it;
+      opt.textContent = it;
+      if (activeSet.has(it)) opt.selected = true;
+      if (select) select.appendChild(opt);
+
+      const divOpt = document.createElement('div');
+      divOpt.className = 'custom-option';
+
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.className = 'custom-option-checkbox';
+      chk.value = it;
+      chk.checked = activeSet.has(it);
+
+      const span = document.createElement('span');
+      span.textContent = it;
+
+      divOpt.appendChild(chk);
+      divOpt.appendChild(span);
+
+      divOpt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (e.target !== chk) chk.checked = !chk.checked;
+        updateDisplayAndFilters();
+      });
+
+      chk.addEventListener('change', (e) => {
+        e.stopPropagation();
+        updateDisplayAndFilters();
+      });
+
+      optionsList.appendChild(divOpt);
+    });
   }
 
   populateDropdown(id, items, defaultVal) {
@@ -428,7 +754,8 @@ class DashboardApp {
       'filterBranch': 'Semua Cabang',
       'filterAlias': 'Semua Alias',
       'filterBrandGroup': 'Semua Grup Brand',
-      'filterItem': 'Semua Produk / Item'
+      'filterItem': 'Semua Produk / Item',
+      'filterReason': 'Semua Alasan'
     };
 
     const keyMap = {
@@ -437,7 +764,8 @@ class DashboardApp {
       'filterBranch': 'branches',
       'filterAlias': 'mtm_aliases',
       'filterBrandGroup': 'brand_groups',
-      'filterItem': 'items'
+      'filterItem': 'items',
+      'filterReason': 'reasons'
     };
 
     const targetKey = keyMap[id];
@@ -470,6 +798,7 @@ class DashboardApp {
           textEl.textContent = `${checkedVals.length} Terpilih`;
         }
       }
+      this.updateCascadingDropdowns();
       this.refreshDashboardData();
     };
 
@@ -529,6 +858,7 @@ class DashboardApp {
             if (textEl) textEl.textContent = this.formatMonthLabel(it);
           }
           container.classList.remove('open');
+          this.updateCascadingDropdowns();
           this.refreshDashboardData();
         });
       } else {
@@ -575,6 +905,20 @@ class DashboardApp {
 
   }
 
+  getEffectiveFilters() {
+    const filters = { ...this.activeFilters };
+    if (this.treemapCrossFilter && this.treemapCrossFilter.name) {
+      const dim = this.treemapCrossFilter.dimension;
+      const val = this.treemapCrossFilter.name;
+      if (dim === 'alasan') filters.reason = val;
+      else if (dim === 'cabang') filters.branches = [val];
+      else if (dim === 'mtm_alias') filters.mtm_aliases = [val];
+      else if (dim === 'grup_brand') filters.brand_groups = [val];
+      else if (dim === 'item') filters.items = [val];
+    }
+    return filters;
+  }
+
   refreshDashboardData() {
     this.fetchKPIData();
     this.fetchTrendData();
@@ -587,7 +931,7 @@ class DashboardApp {
       const res = await fetch(`${this.apiBaseUrl}/api/analytics/kpi`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.activeFilters)
+        body: JSON.stringify(this.getEffectiveFilters())
       });
       const json = await res.json();
       if (res.ok && json.status === 'success') {
@@ -723,7 +1067,7 @@ class DashboardApp {
       const res = await fetch(`${this.apiBaseUrl}/api/analytics/trend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.activeFilters)
+        body: JSON.stringify(this.getEffectiveFilters())
       });
       const json = await res.json();
       if (res.ok && json.status === 'success') {
@@ -818,7 +1162,8 @@ class DashboardApp {
   async fetchParetoData() {
     try {
       const payload = {
-        ...this.activeFilters,
+        ...this.getEffectiveFilters(),
+        metric_type: this.activeFilters.metric_type || 'idr',
         dimension: this.activeParetoDimension,
         unfulfill_only: (this.isParetoUnfulfill !== undefined ? this.isParetoUnfulfill : true)
       };
@@ -872,15 +1217,16 @@ class DashboardApp {
     legendBar.className = 'tableau-legend-bar';
     legendBar.innerHTML = `
       <div style="font-size: 0.75rem; font-weight: 700; color: #FFFFFF; display:flex; align-items:center; gap:0.4rem;">
-        <span style="color: var(--konimex-gold);">📊</span> TABLEAU VISUAL HEATMAP LEGEND:
+        <span style="color: var(--konimex-gold);">📊</span> LEGENDA INTENSITAS PARETO:
       </div>
       <div class="tableau-legend-items">
-        <div><span class="tableau-legend-dot" style="background: #DC2626; box-shadow: 0 0 6px #F87171;"></span> ⭐ Top #1 (Dominan Raksasa)</div>
+        <div><span class="tableau-legend-dot" style="background: #DC2626; box-shadow: 0 0 6px #F87171;"></span> ⭐ Top #1 (Dominan)</div>
         <div><span class="tableau-legend-dot" style="background: #EA580C; box-shadow: 0 0 6px #FB923C;"></span> 🔥 Top #2-#3 (Dampak Tinggi)</div>
         <div><span class="tableau-legend-dot" style="background: #D97706; box-shadow: 0 0 6px #FBBF24;"></span> 🟨 Vital 80% (Dampak Menengah)</div>
         <div><span class="tableau-legend-dot" style="background: #1D4ED8; box-shadow: 0 0 6px #60A5FA;"></span> 🟦 Minor (< 20%)</div>
       </div>
     `;
+
 
     execWrap.appendChild(legendBar);
 
@@ -931,11 +1277,9 @@ class DashboardApp {
       tile.style.minHeight = minHeight;
 
       const isSelected = (
-        (this.activeParetoDimension === 'alasan' && this.activeFilters.reason === it.name) ||
-        (this.activeParetoDimension === 'cabang' && this.activeFilters.branches.includes(it.name)) ||
-        (this.activeParetoDimension === 'mtm_alias' && this.activeFilters.mtm_aliases.includes(it.name)) ||
-        (this.activeParetoDimension === 'grup_brand' && this.activeFilters.brand_groups.includes(it.name)) ||
-        (this.activeParetoDimension === 'item' && this.activeFilters.items.includes(it.name))
+        this.treemapCrossFilter &&
+        this.treemapCrossFilter.dimension === this.activeParetoDimension &&
+        this.treemapCrossFilter.name === it.name
       );
       if (isSelected) tile.classList.add('selected');
 
@@ -957,7 +1301,8 @@ class DashboardApp {
         </div>
       `;
 
-      tile.addEventListener('click', () => {
+      tile.addEventListener('click', (e) => {
+        e.stopPropagation();
         this.handleTreemapClick(it.name);
       });
 
@@ -966,32 +1311,63 @@ class DashboardApp {
 
     execWrap.appendChild(flexGrid);
     container.appendChild(execWrap);
+
+    this.updateCrossFilterBadge();
   }
 
+  clearParetoCrossFilter() {
+    if (this.treemapCrossFilter) {
+      this.treemapCrossFilter = null;
+      this.updateCrossFilterBadge();
+      this.refreshDashboardData();
+    }
+  }
 
+  updateCrossFilterBadge() {
+    const badge = document.getElementById('crossFilterBadge');
+    if (!badge) return;
 
+    if (this.treemapCrossFilter && this.treemapCrossFilter.name) {
+      badge.style.background = 'rgba(234, 179, 8, 0.2)';
+      badge.style.borderColor = '#EAB308';
+      badge.style.color = '#FDE047';
+      badge.innerHTML = `🔍 Treemap Cross-Filter: <strong>${this.treemapCrossFilter.name}</strong> <button id="btnResetTreemapFilter" style="margin-left: 8px; background: #DC2626; color: white; border: none; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">✕ Lepas Filter Treemap</button>`;
+      badge.style.cursor = 'default';
+      badge.onclick = null;
+
+      const btnReset = badge.querySelector('#btnResetTreemapFilter');
+      btnReset?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.clearParetoCrossFilter();
+      });
+    } else {
+      badge.style.background = 'rgba(255, 255, 255, 0.05)';
+      badge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      badge.style.color = 'var(--text-muted)';
+      badge.innerHTML = 'Klik kotak Treemap untuk Cross-Filter';
+      badge.style.cursor = 'default';
+      badge.onclick = null;
+    }
+  }
 
   handleTreemapClick(itemName) {
-    if (this.activeParetoDimension === 'alasan') {
-      this.activeFilters.reason = (this.activeFilters.reason === itemName) ? '' : itemName;
-    } else if (this.activeParetoDimension === 'cabang') {
-      this.activeFilters.branches = this.activeFilters.branches.includes(itemName) ? [] : [itemName];
-    } else if (this.activeParetoDimension === 'mtm_alias') {
-      this.activeFilters.mtm_aliases = this.activeFilters.mtm_aliases.includes(itemName) ? [] : [itemName];
-    } else if (this.activeParetoDimension === 'grup_brand') {
-      this.activeFilters.brand_groups = this.activeFilters.brand_groups.includes(itemName) ? [] : [itemName];
-    } else if (this.activeParetoDimension === 'item') {
-      this.activeFilters.items = this.activeFilters.items.includes(itemName) ? [] : [itemName];
+    if (this.treemapCrossFilter && this.treemapCrossFilter.dimension === this.activeParetoDimension && this.treemapCrossFilter.name === itemName) {
+      this.treemapCrossFilter = null;
+    } else {
+      this.treemapCrossFilter = {
+        dimension: this.activeParetoDimension,
+        name: itemName
+      };
     }
+    this.updateCrossFilterBadge();
     this.refreshDashboardData();
   }
-
-
 
   async fetchGridData() {
     try {
       const payload = {
-        ...this.activeFilters,
+        ...this.getEffectiveFilters(),
+        metric_type: this.activeFilters.metric_type || 'idr',
         dimension: this.activeParetoDimension,
         limit: 50
       };
@@ -1067,6 +1443,8 @@ class DashboardApp {
 
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', () => new DashboardApp());
+} else {
   new DashboardApp();
-});
+}

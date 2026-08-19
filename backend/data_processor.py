@@ -28,90 +28,164 @@ class MTMDataProcessor:
         conn = self.get_connection()
         conn.close()
 
-    def get_filter_options(self) -> Dict[str, Any]:
-
+    def get_filter_options(self, active_filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         conn = self.get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT DISTINCT month FROM dataset WHERE month != '' ORDER BY month;")
+        # Always fetch months sorted DESCENDING (latest month first!)
+        cur.execute("SELECT DISTINCT month FROM dataset WHERE month != '' ORDER BY month DESC;")
         months = [r[0] for r in cur.fetchall()]
 
-        cur.execute("SELECT DISTINCT mtm_type FROM dataset WHERE mtm_type != '' ORDER BY mtm_type;")
-        mtm_types = [r[0] for r in cur.fetchall()]
+        active_filters = active_filters or {}
 
-        cur.execute("SELECT DISTINCT branch FROM dataset WHERE branch != '' ORDER BY branch;")
-        branches = [r[0] for r in cur.fetchall()]
+        def get_distinct_options(target_field: str):
+            # Omit current target_field from sub_filters so user can see available options in target_field
+            sub_filters = {}
+            for k, v in active_filters.items():
+                if k in ['month', 'months', 'mtm_type', 'mtm_types', 'branch', 'branches', 'mtm_alias', 'mtm_aliases', 'brand_group', 'brand_groups', 'item', 'items']:
+                    if k not in [target_field, f"{target_field}s", f"{target_field}_group", f"{target_field}_groups"]:
+                        sub_filters[k] = v
 
-        cur.execute("SELECT DISTINCT mtm_alias FROM dataset WHERE mtm_alias != '' ORDER BY mtm_alias;")
-        mtm_aliases = [r[0] for r in cur.fetchall()]
+            where_sql, params = self._build_where_clause(sub_filters)
+            db_col = 'reason_final' if target_field == 'reason' else ('item_display' if target_field == 'item' else target_field)
+            query = f"SELECT DISTINCT {db_col} FROM dataset {where_sql} AND {db_col} != '' ORDER BY {db_col};"
+            cur.execute(query, params)
+            return [r[0] for r in cur.fetchall()]
 
-        cur.execute("SELECT DISTINCT brand_group FROM dataset WHERE brand_group != '' ORDER BY brand_group;")
-        brand_groups = [r[0] for r in cur.fetchall()]
-
-        cur.execute("SELECT DISTINCT item_display FROM dataset WHERE item_display != '' ORDER BY item_display;")
-        items = [r[0] for r in cur.fetchall()]
+        mtm_types = get_distinct_options('mtm_type')
+        branches = get_distinct_options('branch')
+        mtm_aliases = get_distinct_options('mtm_alias')
+        brand_groups = get_distinct_options('brand_group')
+        items = get_distinct_options('item')
+        raw_reasons = get_distinct_options('reason')
+        reasons = [r for r in raw_reasons if r and r != 'On-Time / Sesuai']
 
         conn.close()
 
         default_mtm = "KA" if "KA" in mtm_types else (mtm_types[0] if mtm_types else "")
-        latest_m = months[-1] if months else "2026-01"
+        latest_m = months[0] if months else "2026-08"
 
         return {
-            "months": months or ["2026-01"],
+            "months": months or ["2026-08"],
             "latest_month": latest_m,
             "mtm_types": mtm_types or ["KA"],
             "default_mtm_type": default_mtm,
             "branches": branches,
             "mtm_aliases": mtm_aliases,
             "brand_groups": brand_groups,
-            "items": items
+            "items": items,
+            "reasons": reasons
         }
 
     def _build_where_clause(self, filters: Dict[str, Any]):
         where_clauses = ["1=1"]
         params = []
 
-        if filters.get('months') and len(filters['months']) > 0:
-            valid_m = [m for m in filters['months'] if m and m.strip() != "" and m.upper() not in ["ALL", "SEMUA BULAN"]]
-            if valid_m:
-                placeholders = ','.join(['?'] * len(valid_m))
-                where_clauses.append(f"month IN ({placeholders})")
-                params.extend(valid_m)
-        elif filters.get('month'):
-            m_val = filters['month']
-            if m_val and m_val.strip() != "" and m_val.upper() not in ["ALL", "SEMUA BULAN"]:
-                where_clauses.append("month = ?")
-                params.append(m_val)
+        def clean_vals(arr):
+            if not arr: return []
+            if isinstance(arr, str): arr = [arr]
+            return [
+                v for v in arr 
+                if v and str(v).strip() != "" and str(v).upper() not in ["ALL", "SEMUA BULAN", "SEMUA JENIS MTM", "SEMUA CABANG", "SEMUA ALIAS", "SEMUA GRUP BRAND", "SEMUA PRODUK / ITEM", "SEMUA"]
+            ]
 
-        if filters.get('mtm_types') and len(filters['mtm_types']) > 0:
-            placeholders = ','.join(['?'] * len(filters['mtm_types']))
+        def normalize_month(v):
+            v_str = str(v).strip().upper()
+            if not v_str or v_str in ["ALL", "SEMUA BULAN", "SEMUA"]:
+                return None
+            if len(v_str) == 7 and v_str[4] == '-' and v_str[:4].isdigit() and v_str[5:].isdigit():
+                return v_str
+            month_name_map = {
+                'JAN': '01', 'JANUARI': '01',
+                'FEB': '02', 'PEB': '02', 'PEBRUARI': '02', 'FEBRUARI': '02',
+                'MAR': '03', 'MARET': '03',
+                'APR': '04', 'APRIL': '04',
+                'MEI': '05', 'MAY': '05',
+                'JUN': '06', 'JUNI': '06',
+                'JUL': '07', 'JULI': '07',
+                'AGU': '08', 'AUG': '08', 'AGUSTUS': '08',
+                'SEP': '09', 'SEPTEMBER': '09',
+                'OKT': '10', 'OCT': '10', 'OKTOBER': '10',
+                'NOV': '11', 'NOVEMBER': '11',
+                'DES': '12', 'DEC': '12', 'DESEMBER': '12'
+            }
+            for sep in ['-', ' ', '/']:
+                if sep in v_str:
+                    parts = v_str.split(sep)
+                    if len(parts) == 2:
+                        p1, p2 = parts[0].strip(), parts[1].strip()
+                        if p1 in month_name_map and p2.isdigit() and len(p2) == 4:
+                            return f"{p2}-{month_name_map[p1]}"
+                        if p2 in month_name_map and p1.isdigit() and len(p1) == 4:
+                            return f"{p1}-{month_name_map[p2]}"
+            return v_str
+
+        raw_m = clean_vals(filters.get('months')) or clean_vals(filters.get('month'))
+        valid_m = []
+        for m in raw_m:
+            nm = normalize_month(m)
+            if nm and nm not in valid_m:
+                valid_m.append(nm)
+
+        if valid_m:
+            placeholders = ','.join(['?'] * len(valid_m))
+            where_clauses.append(f"month IN ({placeholders})")
+            params.extend(valid_m)
+
+        valid_t = clean_vals(filters.get('mtm_types')) or clean_vals(filters.get('mtm_type'))
+        if valid_t:
+            placeholders = ','.join(['?'] * len(valid_t))
             where_clauses.append(f"mtm_type IN ({placeholders})")
-            params.extend(filters['mtm_types'])
-        elif filters.get('mtm_type'):
-            where_clauses.append("mtm_type = ?")
-            params.append(filters['mtm_type'])
+            params.extend(valid_t)
 
-        if filters.get('branches') and len(filters['branches']) > 0:
-            placeholders = ','.join(['?'] * len(filters['branches']))
+        valid_b = clean_vals(filters.get('branches')) or clean_vals(filters.get('branch'))
+        if valid_b:
+            placeholders = ','.join(['?'] * len(valid_b))
             where_clauses.append(f"branch IN ({placeholders})")
-            params.extend(filters['branches'])
-        if filters.get('mtm_aliases') and len(filters['mtm_aliases']) > 0:
-            placeholders = ','.join(['?'] * len(filters['mtm_aliases']))
-            where_clauses.append(f"mtm_alias IN ({placeholders})")
-            params.extend(filters['mtm_aliases'])
-        if filters.get('brand_groups') and len(filters['brand_groups']) > 0:
-            placeholders = ','.join(['?'] * len(filters['brand_groups']))
-            where_clauses.append(f"brand_group IN ({placeholders})")
-            params.extend(filters['brand_groups'])
-        if filters.get('items') and len(filters['items']) > 0:
-            placeholders = ','.join(['?'] * len(filters['items']))
-            where_clauses.append(f"(item_display IN ({placeholders}) OR item_name IN ({placeholders}))")
-            params.extend(filters['items'])
-            params.extend(filters['items'])
-        if filters.get('reason'):
-            where_clauses.append("reason_final = ?")
-            params.append(filters['reason'])
+            params.extend(valid_b)
 
+        valid_a = clean_vals(filters.get('mtm_aliases')) or clean_vals(filters.get('mtm_alias'))
+        if valid_a:
+            placeholders = ','.join(['?'] * len(valid_a))
+            where_clauses.append(f"mtm_alias IN ({placeholders})")
+            params.extend(valid_a)
+
+        valid_bg = clean_vals(filters.get('brand_groups')) or clean_vals(filters.get('brand_group'))
+        if valid_bg:
+            placeholders = ','.join(['?'] * len(valid_bg))
+            where_clauses.append(f"brand_group IN ({placeholders})")
+            params.extend(valid_bg)
+
+        valid_i = clean_vals(filters.get('items')) or clean_vals(filters.get('item'))
+        if valid_i:
+            displays = []
+            codes = []
+            names = []
+            for v in valid_i:
+                v_str = str(v).strip()
+                displays.append(v_str)
+                if ' - ' in v_str:
+                    parts = v_str.split(' - ', 1)
+                    codes.append(parts[0].strip())
+                    names.append(parts[1].strip())
+                else:
+                    codes.append(v_str)
+                    names.append(v_str)
+
+            p_disp = ','.join(['?'] * len(displays))
+            p_code = ','.join(['?'] * len(codes))
+            p_name = ','.join(['?'] * len(names))
+
+            where_clauses.append(f"(item_display IN ({p_disp}) OR product_code IN ({p_code}) OR item_name IN ({p_name}))")
+            params.extend(displays)
+            params.extend(codes)
+            params.extend(names)
+
+        valid_r = clean_vals(filters.get('reasons')) or clean_vals(filters.get('reason'))
+        if valid_r:
+            placeholders = ','.join(['?'] * len(valid_r))
+            where_clauses.append(f"reason_final IN ({placeholders})")
+            params.extend(valid_r)
 
         return " WHERE " + " AND ".join(where_clauses), params
 
@@ -252,6 +326,7 @@ class MTMDataProcessor:
         }
         dim_col = dim_map.get(dimension.lower(), dimension)
 
+        metric_type = filters.get('metric_type', metric_type)
         is_unfulfill = unfulfill_only if 'unfulfill_only' in filters is False else filters.get('unfulfill_only', unfulfill_only)
 
         if is_unfulfill:
@@ -310,8 +385,8 @@ class MTMDataProcessor:
 
         where_sql, params = self._build_where_clause(filters)
 
-        is_unfulfill = filters.get('unfulfill_only', True)
-        if is_unfulfill:
+        # If dimension is 'alasan', filter out 'On-Time / Sesuai' so reason table focuses on problem causes
+        if dimension.lower() == 'alasan':
             where_sql += " AND reason_final != 'On-Time / Sesuai'" if "WHERE" in where_sql else " WHERE reason_final != 'On-Time / Sesuai'"
 
         conn = self.get_connection()
@@ -324,12 +399,13 @@ class MTMDataProcessor:
                 SUM({p_col}) as total_p,
                 SUM({k_col}) as total_k,
                 SUM({r_col}) as total_r,
-                SUM(CASE WHEN ({p_col} - {k_col}) > 0 THEN ({p_col} - {k_col}) ELSE {p_col} END) as gap_unfulfill
+                SUM(CASE WHEN reason_final != 'On-Time / Sesuai' THEN (CASE WHEN ({p_col} - {k_col}) > 0 THEN ({p_col} - {k_col}) ELSE {p_col} END) ELSE 0 END) as gap_unfulfill
             FROM dataset {where_sql}
             GROUP BY {dim_col}
             ORDER BY gap_unfulfill DESC
             LIMIT {limit};
         """
+
 
         cur.execute(sql, params)
         rows = cur.fetchall()
