@@ -192,29 +192,50 @@ class MTMPPTExporter:
 
         content_layout = prs.slide_layouts[2] if len(prs.slide_layouts) > 2 else prs.slide_layouts[0]
 
-        # Slide 0: Cover Slide Title & Subtitle Enhancement with Filter Month Identity
+        # Slide 0: Cover Slide Title & Subtitle Population Inside Template Dashed Boxes
         if len(prs.slides) > 0:
             cover_slide = prs.slides[0]
-            cov_box = cover_slide.shapes.add_textbox(Inches(0.8), Inches(3.8), Inches(8.5), Inches(1.5))
-            tf_cov = cov_box.text_frame
-            tf_cov.word_wrap = True
-            
-            p0 = tf_cov.paragraphs[0]
-            p0.text = "LAPORAN EXECUTIVE SERVICE LEVEL MTM"
-            p0.font.size = Pt(20)
-            p0.font.bold = True
-            p0.font.color.rgb = RGBColor(255, 255, 255)
-            
-            p1 = tf_cov.add_paragraph()
-            p1.text = f"Analisis Performa Pengiriman, Realisasi, dan Pareto Unfulfill"
-            p1.font.size = Pt(13)
-            p1.font.color.rgb = RGBColor(255, 215, 0)
 
-            p2 = tf_cov.add_paragraph()
-            p2.text = filter_info.replace("📌 Filter Aktif: ", "PERIODE FILTER: ")
-            p2.font.size = Pt(11)
-            p2.font.bold = True
-            p2.font.color.rgb = RGBColor(248, 250, 252)
+            # Populate Top Dashed Box (Placeholder 0)
+            if len(cover_slide.placeholders) > 0:
+                ph0 = cover_slide.placeholders[0]
+                tf0 = ph0.text_frame
+                tf0.word_wrap = True
+                p0 = tf0.paragraphs[0]
+                p0.text = "LAPORAN EXECUTIVE SERVICE LEVEL MTM"
+                p0.font.size = Pt(20)
+                p0.font.bold = True
+                p0.font.color.rgb = RGBColor(255, 255, 255)
+                
+                p1 = tf0.add_paragraph()
+                p1.text = "Analisis Performa Pengiriman, Realisasi, dan Pareto Unfulfill"
+                p1.font.size = Pt(12)
+                p1.font.color.rgb = RGBColor(255, 215, 0)
+
+            # Populate Bottom Dashed Box (Placeholder 1)
+            if len(cover_slide.placeholders) > 1:
+                ph1 = cover_slide.placeholders[1]
+                tf1 = ph1.text_frame
+                tf1.word_wrap = True
+                p2 = tf1.paragraphs[0]
+                p2.text = filter_info.replace("📌 Filter Aktif: ", "PERIODE FILTER: ")
+                p2.font.size = Pt(9.5)
+                p2.font.bold = True
+                p2.font.color.rgb = RGBColor(255, 255, 255)
+            else:
+                # Fallback if placeholder 1 is missing
+                cov_box = cover_slide.shapes.add_textbox(Inches(4.87), Inches(1.58), Inches(4.79), Inches(1.48))
+                tf_cov = cov_box.text_frame
+                tf_cov.word_wrap = True
+                p0 = tf_cov.paragraphs[0]
+                p0.text = "LAPORAN EXECUTIVE SERVICE LEVEL MTM"
+                p0.font.size = Pt(20)
+                p0.font.bold = True
+                p0.font.color.rgb = RGBColor(255, 255, 255)
+                p1 = tf_cov.add_paragraph()
+                p1.text = "Analisis Performa Pengiriman, Realisasi, dan Pareto Unfulfill"
+                p1.font.size = Pt(12)
+                p1.font.color.rgb = RGBColor(255, 215, 0)
 
         # Slide 1 (prs.slides[1]): Executive KPI Summary & Monthly Performance Trend Table
         if modules.get("kpi_summary", True) and len(prs.slides) > 1:
