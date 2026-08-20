@@ -162,6 +162,19 @@ def build_active_filters_summary(filters: Dict[str, Any]) -> str:
     return "📌 Filter Aktif: " + " | ".join(parts)
 
 
+def is_all_grup_brand_selected(filters: dict) -> bool:
+    """Returns True if no specific grup brand filter is selected (i.e. 'ALL' / 'SEMUA' is active)."""
+    bg_val = filters.get("brand_groups") or filters.get("brand_group") or filters.get("grup_brand") or filters.get("brand")
+    if not bg_val:
+        return True
+    if isinstance(bg_val, list):
+        valid_bg = [str(bg).strip() for bg in bg_val if bg and str(bg).upper() not in ["ALL", "SEMUA", "SEMUA GRUP BRAND", "SEMUA BRAND"]]
+        return len(valid_bg) == 0
+    else:
+        bg_str = str(bg_val).strip().upper()
+        return bg_str in ["", "ALL", "SEMUA", "SEMUA GRUP BRAND", "SEMUA BRAND"]
+
+
 class MTMPPTExporter:
     def __init__(self, template_path: str = "Template PPT.pptx"):
         self.template_path = template_path
@@ -402,7 +415,7 @@ class MTMPPTExporter:
             if not gb_grid and export_data.get("grid"):
                 gb_grid = export_data.get("grid", [])
 
-            if gb_grid:
+            if gb_grid and is_all_grup_brand_selected(filters):
                 slide_gb = get_or_create_content_slide()
 
                 title_box_gb = slide_gb.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
