@@ -402,66 +402,108 @@ class MTMPPTExporter:
                 p_sub_p.font.bold = True
                 p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
 
-                # Pareto Treemap Visual Block Cards (Matching Dashboard Treemap UI)
-                cols_cnt = 3
-                tile_w = Inches(2.80)
-                tile_h = Inches(1.85)
-                gap_x = Inches(0.20)
-                gap_y = Inches(0.20)
+                # Adaptive Vital Pareto Treemap Cards (Displays ONLY ⭐ Vital Pareto 80% Items)
+                if not vital_items and pareto_items:
+                    vital_items = pareto_items[:1]
 
-                for idx, item in enumerate(pareto_items[:6]):
+                n_vital = len(vital_items)
+                if n_vital <= 3:
+                    cols_cnt = n_vital
+                    max_display = n_vital
+                    tile_w = Inches(8.60 / cols_cnt)
+                    tile_h = Inches(2.20)
+                    gap_x = Inches(0.20)
+                    gap_y = Inches(0.20)
+                    top_start = Inches(1.35)
+                    title_font = Pt(11)
+                    val_font = Pt(15)
+                    sub_font = Pt(8.5)
+                elif n_vital <= 6:
+                    cols_cnt = 3
+                    max_display = n_vital
+                    tile_w = Inches(2.75)
+                    tile_h = Inches(1.65)
+                    gap_x = Inches(0.20)
+                    gap_y = Inches(0.18)
+                    top_start = Inches(1.15)
+                    title_font = Pt(10)
+                    val_font = Pt(13)
+                    sub_font = Pt(7.5)
+                elif n_vital <= 9:
+                    cols_cnt = 3
+                    max_display = n_vital
+                    tile_w = Inches(2.75)
+                    tile_h = Inches(1.12)
+                    gap_x = Inches(0.20)
+                    gap_y = Inches(0.12)
+                    top_start = Inches(1.15)
+                    title_font = Pt(9)
+                    val_font = Pt(11.5)
+                    sub_font = Pt(7)
+                else: # n_vital >= 10
+                    cols_cnt = 4
+                    max_display = min(12, n_vital)
+                    tile_w = Inches(2.05)
+                    tile_h = Inches(1.10)
+                    gap_x = Inches(0.15)
+                    gap_y = Inches(0.12)
+                    top_start = Inches(1.15)
+                    title_font = Pt(8.5)
+                    val_font = Pt(10.5)
+                    sub_font = Pt(6.5)
+
+                display_items = vital_items[:max_display]
+
+                for idx, item in enumerate(display_items):
                     r_i = idx // cols_cnt
                     c_i = idx % cols_cnt
 
                     left_pos = Inches(0.55) + c_i * (tile_w + gap_x)
-                    top_pos = Inches(1.20) + r_i * (tile_h + gap_y)
+                    top_pos = top_start + r_i * (tile_h + gap_y)
 
                     pct = float(item.get("percentage", 0))
                     cum_pct = float(item.get("cumulative_percentage", 0))
-                    prev_cum = cum_pct - pct
-                    is_vital = (prev_cum < 80.0)
-
                     val_num = float(item.get("value", 0))
                     val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f} unit"
 
                     shape = slide_p.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_pos, top_pos, tile_w, tile_h)
                     shape.fill.solid()
-                    if is_vital:
-                        shape.fill.fore_color.rgb = RGBColor(192, 0, 0) # Red Konimex
-                        shape.line.color.rgb = RGBColor(234, 179, 8) # Gold border
-                        shape.line.width = Pt(1.5)
-                    else:
-                        shape.fill.fore_color.rgb = RGBColor(100, 116, 139) # Slate Muted
-                        shape.line.color.rgb = RGBColor(148, 163, 184)
+                    shape.fill.fore_color.rgb = RGBColor(192, 0, 0) # Red Konimex
+                    shape.line.color.rgb = RGBColor(234, 179, 8) # Gold border
+                    shape.line.width = Pt(1.2)
 
                     tf_tile = shape.text_frame
                     tf_tile.word_wrap = True
+                    tf_tile.margin_left = Pt(4)
+                    tf_tile.margin_right = Pt(4)
+                    tf_tile.margin_top = Pt(4)
+                    tf_tile.margin_bottom = Pt(4)
 
                     # Line 0: Badge Status
                     p0 = tf_tile.paragraphs[0]
-                    p0.text = "⭐ VITAL PARETO 80%" if is_vital else "TRIVIAL 20%"
-                    p0.font.size = Pt(8)
+                    p0.text = "⭐ VITAL PARETO 80%"
+                    p0.font.size = sub_font
                     p0.font.bold = True
-                    p0.font.color.rgb = RGBColor(255, 215, 0) if is_vital else RGBColor(226, 232, 240)
+                    p0.font.color.rgb = RGBColor(255, 215, 0)
 
                     # Line 1: Name
                     p1 = tf_tile.add_paragraph()
                     p1.text = str(item.get("name", "-"))
-                    p1.font.size = Pt(10.5)
+                    p1.font.size = title_font
                     p1.font.bold = True
                     p1.font.color.rgb = RGBColor(255, 255, 255)
 
                     # Line 2: Value
                     p2 = tf_tile.add_paragraph()
                     p2.text = val_str
-                    p2.font.size = Pt(13.5)
+                    p2.font.size = val_font
                     p2.font.bold = True
                     p2.font.color.rgb = RGBColor(255, 255, 255)
 
                     # Line 3: Pct & Cum Pct
                     p3 = tf_tile.add_paragraph()
-                    p3.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kumulatif"
-                    p3.font.size = Pt(8)
+                    p3.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kum."
+                    p3.font.size = sub_font
                     p3.font.color.rgb = RGBColor(248, 250, 252)
 
                 # SLIDE B: DETAIL DATA GRID TABLE SLIDE FOR THIS DIMENSION (VITAL PARETO ONLY)
