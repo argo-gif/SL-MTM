@@ -550,6 +550,9 @@ class MTMPPTExporter:
 
             section_idx = 2
             for dim_key, dim_label in dimensions_cfg:
+                if dim_key == "grup_brand" and not is_all_grup_brand_selected(filters):
+                    continue
+
                 unit_name = dim_unit_map.get(dim_key, "Elemen")
                 pareto_items = pareto_data.get(dim_key, [])
                 if not pareto_items:
