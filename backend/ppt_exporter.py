@@ -402,14 +402,13 @@ class MTMPPTExporter:
                 p_sub_p.font.bold = True
                 p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
 
-                # Adaptive Vital Pareto Treemap Cards (Displays ONLY ⭐ Vital Pareto 80% Items)
+                # Adaptive Vital Pareto Treemap Cards (Displays ALL ⭐ Vital Pareto 80% Items on 1 Slide)
                 if not vital_items and pareto_items:
                     vital_items = pareto_items[:1]
 
                 n_vital = len(vital_items)
                 if n_vital <= 3:
                     cols_cnt = n_vital
-                    max_display = n_vital
                     tile_w = Inches(8.60 / cols_cnt)
                     tile_h = Inches(2.20)
                     gap_x = Inches(0.20)
@@ -418,9 +417,9 @@ class MTMPPTExporter:
                     title_font = Pt(11)
                     val_font = Pt(15)
                     sub_font = Pt(8.5)
+                    is_compact = False
                 elif n_vital <= 6:
                     cols_cnt = 3
-                    max_display = n_vital
                     tile_w = Inches(2.75)
                     tile_h = Inches(1.65)
                     gap_x = Inches(0.20)
@@ -429,9 +428,9 @@ class MTMPPTExporter:
                     title_font = Pt(10)
                     val_font = Pt(13)
                     sub_font = Pt(7.5)
+                    is_compact = False
                 elif n_vital <= 9:
                     cols_cnt = 3
-                    max_display = n_vital
                     tile_w = Inches(2.75)
                     tile_h = Inches(1.12)
                     gap_x = Inches(0.20)
@@ -440,9 +439,9 @@ class MTMPPTExporter:
                     title_font = Pt(9)
                     val_font = Pt(11.5)
                     sub_font = Pt(7)
+                    is_compact = False
                 elif n_vital <= 16:
                     cols_cnt = 4
-                    max_display = n_vital
                     tile_w = Inches(2.05)
                     tile_h = Inches(0.85)
                     gap_x = Inches(0.12)
@@ -451,19 +450,20 @@ class MTMPPTExporter:
                     title_font = Pt(8)
                     val_font = Pt(10)
                     sub_font = Pt(6.5)
-                else: # n_vital > 16 (e.g. Item SKU)
-                    cols_cnt = 4
-                    max_display = min(16, n_vital)
-                    tile_w = Inches(2.05)
-                    tile_h = Inches(0.85)
-                    gap_x = Inches(0.12)
-                    gap_y = Inches(0.08)
+                    is_compact = False
+                else: # n_vital > 16 (e.g. Item SKU - all 40 items on 1 slide!)
+                    cols_cnt = 5
+                    tile_w = Inches(1.64)
+                    tile_h = Inches(0.43)
+                    gap_x = Inches(0.10)
+                    gap_y = Inches(0.04)
                     top_start = Inches(1.15)
-                    title_font = Pt(8)
-                    val_font = Pt(10)
-                    sub_font = Pt(6.5)
+                    title_font = Pt(6.5)
+                    val_font = Pt(6.0)
+                    sub_font = Pt(5.5)
+                    is_compact = True
 
-                display_items = vital_items[:max_display]
+                display_items = vital_items
 
                 for idx, item in enumerate(display_items):
                     r_i = idx // cols_cnt
@@ -475,40 +475,50 @@ class MTMPPTExporter:
                     pct = float(item.get("percentage", 0))
                     cum_pct = float(item.get("cumulative_percentage", 0))
                     val_num = float(item.get("value", 0))
-                    val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f} unit"
+                    val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f}"
 
                     shape = slide_p.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_pos, top_pos, tile_w, tile_h)
                     shape.fill.solid()
                     shape.fill.fore_color.rgb = RGBColor(192, 0, 0) # Red Konimex
                     shape.line.color.rgb = RGBColor(234, 179, 8) # Gold border
-                    shape.line.width = Pt(1.0)
+                    shape.line.width = Pt(0.8 if is_compact else 1.0)
 
                     tf_tile = shape.text_frame
                     tf_tile.word_wrap = True
-                    tf_tile.margin_left = Pt(3)
-                    tf_tile.margin_right = Pt(3)
-                    tf_tile.margin_top = Pt(3)
-                    tf_tile.margin_bottom = Pt(3)
+                    tf_tile.margin_left = Pt(2 if is_compact else 3)
+                    tf_tile.margin_right = Pt(2 if is_compact else 3)
+                    tf_tile.margin_top = Pt(1 if is_compact else 3)
+                    tf_tile.margin_bottom = Pt(1 if is_compact else 3)
 
-                    # Line 0: Badge & Name
-                    p0 = tf_tile.paragraphs[0]
-                    p0.text = f"⭐ VITAL {idx+1}: {str(item.get('name', '-'))}"
-                    p0.font.size = title_font
-                    p0.font.bold = True
-                    p0.font.color.rgb = RGBColor(255, 255, 255)
+                    if is_compact:
+                        p0 = tf_tile.paragraphs[0]
+                        p0.text = f"#{idx+1} {str(item.get('name', '-'))}"
+                        p0.font.size = title_font
+                        p0.font.bold = True
+                        p0.font.color.rgb = RGBColor(255, 255, 255)
 
-                    # Line 1: Value
-                    p1 = tf_tile.add_paragraph()
-                    p1.text = val_str
-                    p1.font.size = val_font
-                    p1.font.bold = True
-                    p1.font.color.rgb = RGBColor(255, 215, 0)
+                        p1 = tf_tile.add_paragraph()
+                        p1.text = f"{val_str} ({pct:.1f}%)"
+                        p1.font.size = val_font
+                        p1.font.bold = True
+                        p1.font.color.rgb = RGBColor(255, 215, 0)
+                    else:
+                        p0 = tf_tile.paragraphs[0]
+                        p0.text = f"⭐ VITAL {idx+1}: {str(item.get('name', '-'))}"
+                        p0.font.size = title_font
+                        p0.font.bold = True
+                        p0.font.color.rgb = RGBColor(255, 255, 255)
 
-                    # Line 2: Pct & Cum Pct
-                    p2 = tf_tile.add_paragraph()
-                    p2.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kum."
-                    p2.font.size = sub_font
-                    p2.font.color.rgb = RGBColor(248, 250, 252)
+                        p1 = tf_tile.add_paragraph()
+                        p1.text = val_str
+                        p1.font.size = val_font
+                        p1.font.bold = True
+                        p1.font.color.rgb = RGBColor(255, 215, 0)
+
+                        p2 = tf_tile.add_paragraph()
+                        p2.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kum."
+                        p2.font.size = sub_font
+                        p2.font.color.rgb = RGBColor(248, 250, 252)
 
                 # SLIDE B: DETAIL DATA GRID TABLE SLIDE FOR THIS DIMENSION (VITAL PARETO ONLY)
                 grid_dim = grid_by_dim.get(dim_key, [])
@@ -525,7 +535,6 @@ class MTMPPTExporter:
                 if vital_grid:
                     slide_g = prs.slides.add_slide(content_layout)
 
-                    # Title in top dashed box (Top: 0.45", Left: 0.55", W: 8.8", H: 0.60")
                     title_box_g = slide_g.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
                     tf_g = title_box_g.text_frame
                     tf_g.word_wrap = True
@@ -536,19 +545,23 @@ class MTMPPTExporter:
                     p_g.font.color.rgb = RGBColor(192, 0, 0)
 
                     p_sub_g = tf_g.add_paragraph()
-                    p_sub_g.text = f"{filter_info} | Filter Vital Pareto 80%"
+                    p_sub_g.text = f"{filter_info} | Filter Vital Pareto 80% ({len(vital_grid)} Elemen)"
                     p_sub_g.font.size = Pt(8.5)
                     p_sub_g.font.bold = True
                     p_sub_g.font.color.rgb = RGBColor(100, 100, 100)
 
-                    rows_g_cnt = min(17, len(vital_grid) + 1)
+                    n_rows = len(vital_grid)
+                    rows_g_cnt = n_rows + 1
                     g_table = slide_g.shapes.add_table(rows_g_cnt, 8, Inches(0.55), Inches(1.15), Inches(8.8), Inches(3.8)).table
 
-                    g_col_widths = [Inches(0.5), Inches(2.3), Inches(1.1), Inches(1.1), Inches(1.1), Inches(1.1), Inches(0.8), Inches(0.8)]
+                    g_col_widths = [Inches(0.4 if n_rows > 20 else 0.5), Inches(2.7 if n_rows > 20 else 2.3), Inches(1.0), Inches(1.0), Inches(1.0), Inches(1.1), Inches(0.8), Inches(0.8)]
                     for c_i, w in enumerate(g_col_widths):
                         g_table.columns[c_i].width = w
 
                     headers_g = ["#", "Nama Elemen (Vital 80%)", "Total Order", "Total Kirim", "Total Realisasi", "Nilai Unfulfill", "SL Kirim", "SL Realisasi"]
+                    font_hdr_sz = Pt(6.5) if n_rows > 20 else Pt(8)
+                    font_body_sz = Pt(6.0) if n_rows > 20 else Pt(8.0 if n_rows <= 10 else 7.5)
+
                     for c, h in enumerate(headers_g):
                         cell = g_table.cell(0, c)
                         cell.text = h
@@ -557,10 +570,10 @@ class MTMPPTExporter:
                         for p in cell.text_frame.paragraphs:
                             p.font.bold = True
                             p.font.color.rgb = RGBColor(255, 255, 255)
-                            p.font.size = Pt(8)
+                            p.font.size = font_hdr_sz
                             p.alignment = PP_ALIGN.CENTER
 
-                    for r, row_data in enumerate(vital_grid[:16]):
+                    for r, row_data in enumerate(vital_grid):
                         r_idx = r + 1
                         sl_k_val = float(row_data.get("sl_kirim", 0))
                         sl_r_val = float(row_data.get("sl_realisasi", 0))
@@ -583,8 +596,12 @@ class MTMPPTExporter:
                         for c, v in enumerate(vals):
                             cell = g_table.cell(r_idx, c)
                             cell.text = v
+                            cell.margin_left = Pt(1 if n_rows > 20 else 3)
+                            cell.margin_right = Pt(1 if n_rows > 20 else 3)
+                            cell.margin_top = Pt(1 if n_rows > 20 else 2)
+                            cell.margin_bottom = Pt(1 if n_rows > 20 else 2)
                             for p in cell.text_frame.paragraphs:
-                                p.font.size = Pt(8)
+                                p.font.size = font_body_sz
                                 if c in [2, 3, 4, 5]:
                                     p.alignment = PP_ALIGN.RIGHT
                                 elif c in [0, 6, 7]:
