@@ -225,7 +225,7 @@ class MTMPPTExporter:
                 if shape.has_text_frame and shape.text_frame.text in ["Title 4", "Click to add title"]:
                     shape.text_frame.text = ""
 
-            title_box = slide_kpi.shapes.add_textbox(Inches(0.6), Inches(0.85), Inches(8.8), Inches(0.55))
+            title_box = slide_kpi.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
             tf = title_box.text_frame
             tf.word_wrap = True
             p = tf.paragraphs[0]
@@ -241,9 +241,9 @@ class MTMPPTExporter:
             p_sub.font.color.rgb = RGBColor(100, 100, 100)
 
             # KPI Metric Cards (3 Cards)
-            card_w = Inches(2.7)
-            card_h = Inches(1.05)
-            gap_w = Inches(0.35)
+            card_w = Inches(2.75)
+            card_h = Inches(0.95)
+            gap_w = Inches(0.28)
 
             metrics = [
                 ("SERVICE LEVEL KIRIM", f"{kpi.get('sl_kirim', 0):.1f}%", "Target Acuan: 85.0%"),
@@ -252,8 +252,8 @@ class MTMPPTExporter:
             ]
 
             for i, (title, val, sub) in enumerate(metrics):
-                left = Inches(0.6) + i * (card_w + gap_w)
-                top = Inches(1.45)
+                left = Inches(0.55) + i * (card_w + gap_w)
+                top = Inches(1.15)
 
                 shape = slide_kpi.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, card_w, card_h)
                 shape.fill.solid()
@@ -265,21 +265,21 @@ class MTMPPTExporter:
 
                 p0 = tf_card.paragraphs[0]
                 p0.text = title
-                p0.font.size = Pt(9.5)
+                p0.font.size = Pt(9)
                 p0.font.bold = True
                 p0.font.color.rgb = RGBColor(100, 100, 100)
                 p0.alignment = PP_ALIGN.CENTER
 
                 p1 = tf_card.add_paragraph()
                 p1.text = val
-                p1.font.size = Pt(20)
+                p1.font.size = Pt(19)
                 p1.font.bold = True
                 p1.font.color.rgb = RGBColor(192, 0, 0) if "GAP" not in title else (RGBColor(34, 197, 94) if kpi.get('gap', 0) >= 0 else RGBColor(239, 68, 68))
                 p1.alignment = PP_ALIGN.CENTER
 
                 p2 = tf_card.add_paragraph()
                 p2.text = sub
-                p2.font.size = Pt(8)
+                p2.font.size = Pt(7.5)
                 p2.font.color.rgb = RGBColor(120, 120, 120)
                 p2.alignment = PP_ALIGN.CENTER
 
@@ -291,7 +291,7 @@ class MTMPPTExporter:
                 chart_data.add_series('SL Kirim (%)', [round(float(r.get('sl_kirim', 0)), 1) for r in trend_data])
                 chart_data.add_series('SL Realisasi (%)', [round(float(r.get('sl_realisasi', 0)), 1) for r in trend_data])
 
-                x, y, cx, cy = Inches(0.6), Inches(2.55), Inches(8.8), Inches(2.65)
+                x, y, cx, cy = Inches(0.55), Inches(2.18), Inches(8.8), Inches(2.55)
                 chart_shape = slide_kpi.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
                 chart = chart_shape.chart
 
