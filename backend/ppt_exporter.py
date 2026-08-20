@@ -206,6 +206,26 @@ class MTMPPTExporter:
         p_banner.font.color.rgb = RGBColor(255, 255, 255) # White
         p_banner.alignment = PP_ALIGN.CENTER
 
+    def _create_cloned_content_slide(self, prs, content_layout):
+        """Creates a new slide cloned from Slide 1 of Template PPT.pptx, preserving exact background & branding."""
+        slide = prs.slides.add_slide(content_layout)
+
+        # Clear default placeholder textboxes
+        for sp in list(slide.shapes):
+            sp._element.getparent().remove(sp._element)
+
+        # Copy background <p:bg> element from Slide 1 if available
+        if len(prs.slides) > 1 and prs.slides[1]._element.cSld.bg is not None:
+            src_bg = prs.slides[1]._element.cSld.bg
+            new_bg = copy.deepcopy(src_bg)
+            if slide._element.cSld.bg is not None:
+                slide._element.cSld.remove(slide._element.cSld.bg)
+            slide._element.cSld.insert(0, new_bg)
+
+        # Add top-right KONIMEX logo & bottom-right Red Banner branding
+        self._add_header_footer_branding(slide)
+        return slide
+
     def _generate_with_python_pptx(self, export_data: Dict[str, Any], output_path: str) -> str:
         prs = Presentation(self.template_path)
 
@@ -426,10 +446,7 @@ class MTMPPTExporter:
 
                 # SLIDE A: PARETO TREEMAP SLIDE(S) FOR THIS DIMENSION
                 for chunk_idx, chunk_items in enumerate(pareto_chunks):
-                    slide_p = prs.slides.add_slide(content_layout)
-                    for sp in list(slide_p.shapes):
-                        sp._element.getparent().remove(sp._element)
-                    self._add_header_footer_branding(slide_p)
+                    slide_p = self._create_cloned_content_slide(prs, content_layout)
 
                     title_box_p = slide_p.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
                     tf_p = title_box_p.text_frame
@@ -551,10 +568,7 @@ class MTMPPTExporter:
                 total_g_chunks = len(grid_chunks)
 
                 for chunk_idx, chunk_grid in enumerate(grid_chunks):
-                    slide_g = prs.slides.add_slide(content_layout)
-                    for sp in list(slide_g.shapes):
-                        sp._element.getparent().remove(sp._element)
-                    self._add_header_footer_branding(slide_g)
+                    slide_g = self._create_cloned_content_slide(prs, content_layout)
 
                     title_box_g = slide_g.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
                     tf_g = title_box_g.text_frame
