@@ -47,6 +47,135 @@ class MTMPPTExporter:
     def _generate_with_python_pptx(self, export_data: Dict[str, Any], output_path: str) -> str:
         prs = Presentation(self.template_path)
 
+def build_active_filters_summary(filters: Dict[str, Any]) -> str:
+    if not filters:
+        return "📌 Filter Aktif: Semua Data"
+
+    parts = []
+
+    # 1. Month
+    m_val = filters.get("months") or filters.get("month")
+    if m_val:
+        if isinstance(m_val, list):
+            valid_m = [format_month_label(m) for m in m_val if m and str(m).upper() not in ["ALL", "SEMUA", "SEMUA BULAN"]]
+            if valid_m:
+                if len(valid_m) == 1:
+                    parts.append(f"Bulan = {valid_m[0]}")
+                else:
+                    parts.append(f"Bulan = {len(valid_m)} Terpilih ({', '.join(valid_m[:2])})")
+        else:
+            lbl = format_month_label(m_val)
+            if lbl != "Semua Bulan":
+                parts.append(f"Bulan = {lbl}")
+    if not any(p.startswith("Bulan =") for p in parts):
+        parts.append("Bulan = AGU-2026")
+
+    # 2. MTM Type
+    t_val = filters.get("mtm_types") or filters.get("mtm_type")
+    if t_val:
+        if isinstance(t_val, list):
+            valid_t = [str(t).strip() for t in t_val if t and str(t).upper() not in ["ALL", "SEMUA", "SEMUA JENIS MTM"]]
+            if valid_t:
+                parts.append(f"MTM = {', '.join(valid_t)}")
+        else:
+            t_str = str(t_val).strip()
+            if t_str and t_str.upper() not in ["ALL", "SEMUA", "SEMUA JENIS MTM"]:
+                parts.append(f"MTM = {t_str}")
+
+    # 3. Branch
+    b_val = filters.get("branches") or filters.get("branch")
+    if b_val:
+        if isinstance(b_val, list):
+            valid_b = [str(b).strip() for b in b_val if b and str(b).upper() not in ["ALL", "SEMUA", "SEMUA CABANG"]]
+            if valid_b:
+                if len(valid_b) == 1:
+                    parts.append(f"Cabang = {valid_b[0]}")
+                else:
+                    parts.append(f"Cabang = {len(valid_b)} Terpilih")
+        else:
+            b_str = str(b_val).strip()
+            if b_str and b_str.upper() not in ["ALL", "SEMUA", "SEMUA CABANG"]:
+                parts.append(f"Cabang = {b_str}")
+
+    # 4. MTM Alias
+    a_val = filters.get("mtm_aliases") or filters.get("mtm_alias")
+    if a_val:
+        if isinstance(a_val, list):
+            valid_a = [str(a).strip() for a in a_val if a and str(a).upper() not in ["ALL", "SEMUA", "SEMUA ALIAS"]]
+            if valid_a:
+                if len(valid_a) == 1:
+                    parts.append(f"MTM Alias = {valid_a[0]}")
+                else:
+                    parts.append(f"MTM Alias = {len(valid_a)} Terpilih")
+        else:
+            a_str = str(a_val).strip()
+            if a_str and a_str.upper() not in ["ALL", "SEMUA", "SEMUA ALIAS"]:
+                parts.append(f"MTM Alias = {a_str}")
+
+    # 5. Brand Group
+    bg_val = filters.get("brand_groups") or filters.get("brand_group")
+    if bg_val:
+        if isinstance(bg_val, list):
+            valid_bg = [str(bg).strip() for bg in bg_val if bg and str(bg).upper() not in ["ALL", "SEMUA", "SEMUA GRUP BRAND"]]
+            if valid_bg:
+                if len(valid_bg) == 1:
+                    parts.append(f"Brand = {valid_bg[0]}")
+                else:
+                    parts.append(f"Brand = {len(valid_bg)} Terpilih")
+        else:
+            bg_str = str(bg_val).strip()
+            if bg_str and bg_str.upper() not in ["ALL", "SEMUA", "SEMUA GRUP BRAND"]:
+                parts.append(f"Brand = {bg_str}")
+
+    # 6. Item
+    i_val = filters.get("items") or filters.get("item")
+    if i_val:
+        if isinstance(i_val, list):
+            valid_i = [str(i).strip() for i in i_val if i and str(i).upper() not in ["ALL", "SEMUA", "SEMUA PRODUK / ITEM"]]
+            if valid_i:
+                if len(valid_i) == 1:
+                    parts.append(f"Item = {valid_i[0]}")
+                else:
+                    parts.append(f"Item = {len(valid_i)} Terpilih")
+        else:
+            i_str = str(i_val).strip()
+            if i_str and i_str.upper() not in ["ALL", "SEMUA", "SEMUA PRODUK / ITEM"]:
+                parts.append(f"Item = {i_str}")
+
+    # 7. Reason
+    r_val = filters.get("reasons") or filters.get("reason")
+    if r_val:
+        if isinstance(r_val, list):
+            valid_r = [str(r).strip() for r in r_val if r and str(r).upper() not in ["ALL", "SEMUA", "SEMUA ALASAN"]]
+            if valid_r:
+                if len(valid_r) == 1:
+                    parts.append(f"Alasan = {valid_r[0]}")
+                else:
+                    parts.append(f"Alasan = {len(valid_r)} Terpilih")
+        else:
+            r_str = str(r_val).strip()
+            if r_str and r_str.upper() not in ["ALL", "SEMUA", "SEMUA ALASAN"]:
+                parts.append(f"Alasan = {r_str}")
+
+    return "📌 Filter Aktif: " + " | ".join(parts)
+
+
+class MTMPPTExporter:
+    def __init__(self, template_path: str = "Template PPT.pptx"):
+        self.template_path = template_path
+
+    def generate_presentation(self, export_data: Dict[str, Any], output_path: str = "output_report.pptx") -> str:
+        """
+        Generate PowerPoint presentation based on Template PPT.pptx with complete slide data population matching dashboard filters.
+        """
+        if HAS_PYTHON_PPTX and os.path.exists(self.template_path):
+            return self._generate_with_python_pptx(export_data, output_path)
+        else:
+            return self._generate_fallback(export_data, output_path)
+
+    def _generate_with_python_pptx(self, export_data: Dict[str, Any], output_path: str) -> str:
+        prs = Presentation(self.template_path)
+
         filters = export_data.get("filters", {})
         kpi = export_data.get("kpi", {})
         pareto = export_data.get("pareto", {})
@@ -55,11 +184,9 @@ class MTMPPTExporter:
 
         sel_month = filters.get("month", "2026-08")
         sel_mtm = filters.get("mtm_type", "KA")
-        sel_branch = filters.get("branch", "Semua Cabang")
-        sel_brand = filters.get("brand_group", "Semua Grup Brand")
         month_label = format_month_label(sel_month)
 
-        filter_info = f"📌 Filter Aktif: Bulan = {month_label} | MTM = {sel_mtm} | Cabang = {sel_branch} | Brand = {sel_brand}"
+        filter_info = build_active_filters_summary(filters)
 
         content_layout = prs.slide_layouts[2] if len(prs.slide_layouts) > 2 else prs.slide_layouts[0]
 
@@ -82,7 +209,7 @@ class MTMPPTExporter:
             p1.font.color.rgb = RGBColor(255, 215, 0)
 
             p2 = tf_cov.add_paragraph()
-            p2.text = f"PERIODE FILTER: {month_label} | JENIS MTM: {sel_mtm} | CABANG: {sel_branch}"
+            p2.text = filter_info.replace("📌 Filter Aktif: ", "PERIODE FILTER: ")
             p2.font.size = Pt(11)
             p2.font.bold = True
             p2.font.color.rgb = RGBColor(248, 250, 252)
@@ -96,7 +223,7 @@ class MTMPPTExporter:
                 if shape.has_text_frame and shape.text_frame.text in ["Title 4", "Click to add title"]:
                     shape.text_frame.text = ""
 
-            title_box = slide_kpi.shapes.add_textbox(Inches(0.6), Inches(1.0), Inches(8.8), Inches(0.6))
+            title_box = slide_kpi.shapes.add_textbox(Inches(0.6), Inches(0.9), Inches(8.8), Inches(0.65))
             tf = title_box.text_frame
             tf.word_wrap = True
             p = tf.paragraphs[0]
@@ -124,7 +251,7 @@ class MTMPPTExporter:
 
             for i, (title, val, sub) in enumerate(metrics):
                 left = Inches(0.6) + i * (card_w + gap_w)
-                top = Inches(1.7)
+                top = Inches(1.65)
 
                 shape = slide_kpi.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, card_w, card_h)
                 shape.fill.solid()
@@ -154,13 +281,19 @@ class MTMPPTExporter:
                 p2.font.color.rgb = RGBColor(120, 120, 120)
                 p2.alignment = PP_ALIGN.CENTER
 
-            # Monthly Trend Table
+            # Monthly Trend Table (Analisa Trend SL Kirim & Realisasi)
             trend_data = export_data.get("trend", [])
             if trend_data:
-                table_shape = slide_kpi.shapes.add_table(min(7, len(trend_data) + 1), 6, Inches(0.6), Inches(3.05), Inches(8.8), Inches(1.9))
+                rows_cnt = min(8, len(trend_data) + 1)
+                table_shape = slide_kpi.shapes.add_table(rows_cnt, 6, Inches(0.6), Inches(3.05), Inches(8.8), Inches(2.1))
                 table = table_shape.table
 
-                headers = ["Bulan", "Total Pesan", "Total Kirim", "Total Realisasi", "SL Kirim (%)", "SL Realisasi (%)"]
+                # Set column widths cleanly
+                col_widths = [Inches(1.2), Inches(1.3), Inches(1.8), Inches(1.3), Inches(1.8), Inches(1.4)]
+                for i, w in enumerate(col_widths):
+                    table.columns[i].width = w
+
+                headers = ["Bulan", "SL Kirim (%)", "Status Kirim", "SL Realisasi (%)", "Status Realisasi", "Gap Selisih (%)"]
                 for c, h in enumerate(headers):
                     cell = table.cell(0, c)
                     cell.text = h
@@ -172,18 +305,25 @@ class MTMPPTExporter:
                         p.font.size = Pt(9)
                         p.alignment = PP_ALIGN.CENTER
 
-                for r, row_data in enumerate(trend_data[:6]):
+                for r, row_data in enumerate(trend_data[:7]):
                     r_idx = r + 1
                     raw_m = str(row_data.get("month", ""))
                     m_formatted = format_month_label(raw_m)
 
+                    sl_k = float(row_data.get("sl_kirim", 0))
+                    sl_r = float(row_data.get("sl_realisasi", 0))
+                    gap_val = float(row_data.get("gap", 0))
+
+                    st_k = "✅ Target (≥85%)" if sl_k >= 85.0 else "⚠️ Di Bawah Target"
+                    st_r = "✅ Target (≥85%)" if sl_r >= 85.0 else "⚠️ Di Bawah Target"
+
                     vals = [
                         m_formatted,
-                        f"{row_data.get('total_p', 0):,.0f}",
-                        f"{row_data.get('total_k', 0):,.0f}",
-                        f"{row_data.get('total_r', 0):,.0f}",
-                        f"{row_data.get('sl_kirim', 0):.1f}%",
-                        f"{row_data.get('sl_realisasi', 0):.1f}%"
+                        f"{sl_k:.1f}%",
+                        st_k,
+                        f"{sl_r:.1f}%",
+                        st_r,
+                        f"{gap_val:+.1f}%"
                     ]
                     for c, v in enumerate(vals):
                         cell = table.cell(r_idx, c)
@@ -192,17 +332,17 @@ class MTMPPTExporter:
                         is_active_month = (raw_m == sel_month or m_formatted == month_label)
                         if is_active_month:
                             cell.fill.solid()
-                            cell.fill.fore_color.rgb = RGBColor(254, 242, 242) # Soft Red tint
+                            cell.fill.fore_color.rgb = RGBColor(254, 242, 242)
 
                         for p in cell.text_frame.paragraphs:
                             p.font.size = Pt(8.5)
                             if is_active_month:
                                 p.font.bold = True
                                 p.font.color.rgb = RGBColor(192, 0, 0)
-                            if c >= 1:
-                                p.alignment = PP_ALIGN.RIGHT
-                            if c == 0:
+                            if c in [0, 2, 4]:
                                 p.alignment = PP_ALIGN.CENTER
+                            else:
+                                p.alignment = PP_ALIGN.RIGHT
 
         # Slide 2: Pareto Multi-Dimension Analysis Slide
         if modules.get("pareto_sheets", True):
