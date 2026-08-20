@@ -178,11 +178,8 @@ class MTMPPTExporter:
     def _generate_with_python_pptx(self, export_data: Dict[str, Any], output_path: str) -> str:
         prs = Presentation(self.template_path)
 
-        # Clean up pre-existing extra template slides beyond Slide 0 and Slide 1
-        while len(prs.slides) > 2:
-            rId = prs.slides._sldIdLst[2].rId
-            prs.part.drop_rel(rId)
-            del prs.slides._sldIdLst[2]
+        # Save reference to pre-existing slide 2 (Terima Kasih slide with Rocket background from Template PPT.pptx)
+        thanks_sld_id = prs.slides._sldIdLst[2] if len(prs.slides) > 2 else None
 
         filters = export_data.get("filters", {})
         kpi = export_data.get("kpi", {})
@@ -592,35 +589,10 @@ class MTMPPTExporter:
 
                 section_idx += 1
 
-        # Final Closing Slide: Terima Kasih
-        slide_thanks = prs.slides.add_slide(content_layout)
-        for sp in list(slide_thanks.shapes):
-            sp._element.getparent().remove(sp._element)
-
-        tb_thanks = slide_thanks.shapes.add_textbox(Inches(1.0), Inches(2.20), Inches(8.0), Inches(2.50))
-        tf_t = tb_thanks.text_frame
-        tf_t.word_wrap = True
-
-        p1_t = tf_t.paragraphs[0]
-        p1_t.text = "TERIMA KASIH"
-        p1_t.font.size = Pt(36)
-        p1_t.font.bold = True
-        p1_t.font.color.rgb = RGBColor(192, 0, 0)
-        p1_t.alignment = PP_ALIGN.CENTER
-
-        p2_t = tf_t.add_paragraph()
-        p2_t.text = "Laporan Executive Service Level MTM"
-        p2_t.font.size = Pt(16)
-        p2_t.font.bold = True
-        p2_t.font.color.rgb = RGBColor(71, 85, 105)
-        p2_t.alignment = PP_ALIGN.CENTER
-
-        p3_t = tf_t.add_paragraph()
-        p3_t.text = "PT. KONIMEX — Inovasi dan Efisiensi Untuk Pertumbuhan Optimal"
-        p3_t.font.size = Pt(11)
-        p3_t.font.bold = True
-        p3_t.font.color.rgb = RGBColor(100, 116, 139)
-        p3_t.alignment = PP_ALIGN.CENTER
+        # Move original pre-existing Slide 2 (Terima Kasih Slide with Rocket Background from Template PPT.pptx) to the end
+        if thanks_sld_id is not None:
+            prs.slides._sldIdLst.remove(thanks_sld_id)
+            prs.slides._sldIdLst.append(thanks_sld_id)
 
         prs.save(output_path)
         print(f"Presentation saved successfully to {output_path}")
