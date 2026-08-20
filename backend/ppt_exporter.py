@@ -12,6 +12,8 @@ try:
     from pptx.dml.color import RGBColor
     from pptx.enum.text import PP_ALIGN
     from pptx.enum.shapes import MSO_SHAPE
+    from pptx.chart.data import CategoryChartData
+    from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
     HAS_PYTHON_PPTX = True
 except ImportError:
     HAS_PYTHON_PPTX = False
@@ -281,68 +283,41 @@ class MTMPPTExporter:
                 p2.font.color.rgb = RGBColor(120, 120, 120)
                 p2.alignment = PP_ALIGN.CENTER
 
-            # Monthly Trend Table (Analisa Trend SL Kirim & Realisasi)
+            # Monthly Performance Trend Line Chart (Grafik Trend Service Level Kirim & Realisasi)
             trend_data = export_data.get("trend", [])
             if trend_data:
-                rows_cnt = min(8, len(trend_data) + 1)
-                table_shape = slide_kpi.shapes.add_table(rows_cnt, 6, Inches(0.6), Inches(3.05), Inches(8.8), Inches(2.1))
-                table = table_shape.table
+                chart_data = CategoryChartData()
+                chart_data.categories = [format_month_label(r.get("month", "")) for r in trend_data]
+                chart_data.add_series('SL Kirim (%)', [round(float(r.get('sl_kirim', 0)), 1) for r in trend_data])
+                chart_data.add_series('SL Realisasi (%)', [round(float(r.get('sl_realisasi', 0)), 1) for r in trend_data])
+                chart_data.add_series('Target Benchmark (85%)', [85.0 for _ in trend_data])
 
-                # Set column widths cleanly
-                col_widths = [Inches(1.2), Inches(1.3), Inches(1.8), Inches(1.3), Inches(1.8), Inches(1.4)]
-                for i, w in enumerate(col_widths):
-                    table.columns[i].width = w
+                x, y, cx, cy = Inches(0.6), Inches(3.0), Inches(8.8), Inches(3.35)
+                chart_shape = slide_kpi.shapes.add_chart(XL_CHART_TYPE.LINE_MARKERS, x, y, cx, cy, chart_data)
+                chart = chart_shape.chart
 
-                headers = ["Bulan", "SL Kirim (%)", "Status Kirim", "SL Realisasi (%)", "Status Realisasi", "Gap Selisih (%)"]
-                for c, h in enumerate(headers):
-                    cell = table.cell(0, c)
-                    cell.text = h
-                    cell.fill.solid()
-                    cell.fill.fore_color.rgb = RGBColor(192, 0, 0)
-                    for p in cell.text_frame.paragraphs:
-                        p.font.bold = True
-                        p.font.color.rgb = RGBColor(255, 255, 255)
-                        p.font.size = Pt(9)
-                        p.alignment = PP_ALIGN.CENTER
+                chart.has_legend = True
+                chart.legend.position = XL_LEGEND_POSITION.TOP
+                chart.legend.include_in_layout = False
 
-                for r, row_data in enumerate(trend_data[:7]):
-                    r_idx = r + 1
-                    raw_m = str(row_data.get("month", ""))
-                    m_formatted = format_month_label(raw_m)
+                # Style Series
+                # Series 0: SL Kirim (Konimex Primary Red)
+                if len(chart.series) > 0:
+                    series0 = chart.series[0]
+                    series0.format.line.color.rgb = RGBColor(192, 0, 0)
+                    series0.format.line.width = Pt(2.5)
 
-                    sl_k = float(row_data.get("sl_kirim", 0))
-                    sl_r = float(row_data.get("sl_realisasi", 0))
-                    gap_val = float(row_data.get("gap", 0))
+                # Series 1: SL Realisasi (Bright Red / Orange-Red)
+                if len(chart.series) > 1:
+                    series1 = chart.series[1]
+                    series1.format.line.color.rgb = RGBColor(220, 38, 38)
+                    series1.format.line.width = Pt(2.5)
 
-                    st_k = "✅ Target (≥85%)" if sl_k >= 85.0 else "⚠️ Di Bawah Target"
-                    st_r = "✅ Target (≥85%)" if sl_r >= 85.0 else "⚠️ Di Bawah Target"
-
-                    vals = [
-                        m_formatted,
-                        f"{sl_k:.1f}%",
-                        st_k,
-                        f"{sl_r:.1f}%",
-                        st_r,
-                        f"{gap_val:+.1f}%"
-                    ]
-                    for c, v in enumerate(vals):
-                        cell = table.cell(r_idx, c)
-                        cell.text = v
-                        # Highlight active filter month
-                        is_active_month = (raw_m == sel_month or m_formatted == month_label)
-                        if is_active_month:
-                            cell.fill.solid()
-                            cell.fill.fore_color.rgb = RGBColor(254, 242, 242)
-
-                        for p in cell.text_frame.paragraphs:
-                            p.font.size = Pt(8.5)
-                            if is_active_month:
-                                p.font.bold = True
-                                p.font.color.rgb = RGBColor(192, 0, 0)
-                            if c in [0, 2, 4]:
-                                p.alignment = PP_ALIGN.CENTER
-                            else:
-                                p.alignment = PP_ALIGN.RIGHT
+                # Series 2: Target Benchmark 85% (Gold / Yellow Accent)
+                if len(chart.series) > 2:
+                    series2 = chart.series[2]
+                    series2.format.line.color.rgb = RGBColor(234, 179, 8)
+                    series2.format.line.width = Pt(1.5)
 
         # Slide 2: Pareto Multi-Dimension Analysis Slide
         if modules.get("pareto_sheets", True):
