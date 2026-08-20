@@ -366,8 +366,17 @@ class MTMPPTExporter:
                 ("item", "ITEM / PRODUK SKU")
             ]
 
+            dim_unit_map = {
+                "alasan": "Alasan",
+                "mtm_alias": "Akun MTM",
+                "cabang": "Cabang",
+                "grup_brand": "Grup Brand",
+                "item": "Item SKU"
+            }
+
             section_idx = 2
             for dim_key, dim_label in dimensions_cfg:
+                unit_name = dim_unit_map.get(dim_key, "Elemen")
                 pareto_items = pareto_data.get(dim_key, [])
                 if not pareto_items:
                     continue
@@ -404,7 +413,7 @@ class MTMPPTExporter:
                     start_num = chunk_idx * CHUNK_SIZE + 1
                     end_num = start_num + len(chunk_items) - 1
                     range_str = f"#{start_num} - #{end_num}" if total_p_chunks > 1 else f"1 - {len(vital_items)}"
-                    p_sub_p.text = f"{filter_info} | Pareto 80% ({range_str} dari {len(vital_items)} Elemen)"
+                    p_sub_p.text = f"{filter_info} | Pareto 80% ({range_str} dari {len(vital_items)} {unit_name})"
                     p_sub_p.font.size = Pt(8.5)
                     p_sub_p.font.bold = True
                     p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
@@ -528,7 +537,7 @@ class MTMPPTExporter:
                     start_num = chunk_idx * CHUNK_SIZE + 1
                     end_num = start_num + len(chunk_grid) - 1
                     range_str = f"#{start_num} - #{end_num}" if total_g_chunks > 1 else f"1 - {len(vital_grid)}"
-                    p_sub_g.text = f"{filter_info} | Filter Pareto 80% ({range_str} dari {len(vital_grid)} Elemen)"
+                    p_sub_g.text = f"{filter_info} | Filter Pareto 80% ({range_str} dari {len(vital_grid)} {unit_name})"
                     p_sub_g.font.size = Pt(8.5)
                     p_sub_g.font.bold = True
                     p_sub_g.font.color.rgb = RGBColor(100, 100, 100)
@@ -540,7 +549,7 @@ class MTMPPTExporter:
                     for c_i, w in enumerate(g_col_widths):
                         g_table.columns[c_i].width = w
 
-                    headers_g = ["#", "Nama Elemen (Pareto 80%)", "Total Order", "Total Kirim", "Total Realisasi", "Nilai Unfulfill", "SL Kirim", "SL Realisasi"]
+                    headers_g = ["#", f"Nama {unit_name} (Pareto 80%)", "Total Order", "Total Kirim", "Total Realisasi", "Nilai Unfulfill", "SL Kirim", "SL Realisasi"]
                     for c, h in enumerate(headers_g):
                         cell = g_table.cell(0, c)
                         cell.text = h
