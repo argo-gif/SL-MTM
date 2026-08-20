@@ -402,62 +402,67 @@ class MTMPPTExporter:
                 p_sub_p.font.bold = True
                 p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
 
-                # Pareto Table for this dimension (display up to 9 rows)
-                rows_p_cnt = min(10, len(pareto_items) + 1)
-                p_table = slide_p.shapes.add_table(rows_p_cnt, 6, Inches(0.55), Inches(1.15), Inches(8.8), Inches(3.8)).table
+                # Pareto Treemap Visual Block Cards (Matching Dashboard Treemap UI)
+                cols_cnt = 3
+                tile_w = Inches(2.80)
+                tile_h = Inches(1.85)
+                gap_x = Inches(0.20)
+                gap_y = Inches(0.20)
 
-                p_col_widths = [Inches(0.6), Inches(3.2), Inches(1.5), Inches(1.1), Inches(1.1), Inches(1.3)]
-                for c_i, w in enumerate(p_col_widths):
-                    p_table.columns[c_i].width = w
+                for idx, item in enumerate(pareto_items[:6]):
+                    r_i = idx // cols_cnt
+                    c_i = idx % cols_cnt
 
-                headers_p = ["No", "Nama Elemen / Kategori", "Nilai Unfulfilled", "Kontribusi (%)", "Kumulatif (%)", "Status Pareto"]
-                for c, h in enumerate(headers_p):
-                    cell = p_table.cell(0, c)
-                    cell.text = h
-                    cell.fill.solid()
-                    cell.fill.fore_color.rgb = RGBColor(192, 0, 0)
-                    for p in cell.text_frame.paragraphs:
-                        p.font.bold = True
-                        p.font.color.rgb = RGBColor(255, 255, 255)
-                        p.font.size = Pt(8.5)
-                        p.alignment = PP_ALIGN.CENTER
+                    left_pos = Inches(0.55) + c_i * (tile_w + gap_x)
+                    top_pos = Inches(1.20) + r_i * (tile_h + gap_y)
 
-                for r, item in enumerate(pareto_items[:9]):
-                    r_idx = r + 1
-                    val_num = float(item.get("value", 0))
-                    val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f} unit"
                     pct = float(item.get("percentage", 0))
                     cum_pct = float(item.get("cumulative_percentage", 0))
-                    
                     prev_cum = cum_pct - pct
                     is_vital = (prev_cum < 80.0)
-                    status_str = "⭐ Vital 80%" if is_vital else "Trivial 20%"
 
-                    vals = [
-                        str(r_idx),
-                        str(item.get("name", "-")),
-                        val_str,
-                        f"{pct:.1f}%",
-                        f"{cum_pct:.1f}%",
-                        status_str
-                    ]
+                    val_num = float(item.get("value", 0))
+                    val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f} unit"
 
-                    for c, v in enumerate(vals):
-                        cell = p_table.cell(r_idx, c)
-                        cell.text = v
-                        if is_vital:
-                            cell.fill.solid()
-                            cell.fill.fore_color.rgb = RGBColor(254, 242, 242)
+                    shape = slide_p.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_pos, top_pos, tile_w, tile_h)
+                    shape.fill.solid()
+                    if is_vital:
+                        shape.fill.fore_color.rgb = RGBColor(192, 0, 0) # Red Konimex
+                        shape.line.color.rgb = RGBColor(234, 179, 8) # Gold border
+                        shape.line.width = Pt(1.5)
+                    else:
+                        shape.fill.fore_color.rgb = RGBColor(100, 116, 139) # Slate Muted
+                        shape.line.color.rgb = RGBColor(148, 163, 184)
 
-                        for p in cell.text_frame.paragraphs:
-                            p.font.size = Pt(8)
-                            if is_vital:
-                                p.font.bold = True
-                                p.font.color.rgb = RGBColor(192, 0, 0)
-                            if c in [2, 3, 4]:
-                                p.alignment = PP_ALIGN.RIGHT
-                            elif c in [0, 5]:
-                                p.alignment = PP_ALIGN.CENTER
+                    tf_tile = shape.text_frame
+                    tf_tile.word_wrap = True
+
+                    # Line 0: Badge Status
+                    p0 = tf_tile.paragraphs[0]
+                    p0.text = "⭐ VITAL PARETO 80%" if is_vital else "TRIVIAL 20%"
+                    p0.font.size = Pt(8)
+                    p0.font.bold = True
+                    p0.font.color.rgb = RGBColor(255, 215, 0) if is_vital else RGBColor(226, 232, 240)
+
+                    # Line 1: Name
+                    p1 = tf_tile.add_paragraph()
+                    p1.text = str(item.get("name", "-"))
+                    p1.font.size = Pt(10.5)
+                    p1.font.bold = True
+                    p1.font.color.rgb = RGBColor(255, 255, 255)
+
+                    # Line 2: Value
+                    p2 = tf_tile.add_paragraph()
+                    p2.text = val_str
+                    p2.font.size = Pt(13.5)
+                    p2.font.bold = True
+                    p2.font.color.rgb = RGBColor(255, 255, 255)
+
+                    # Line 3: Pct & Cum Pct
+                    p3 = tf_tile.add_paragraph()
+                    p3.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kumulatif"
+                    p3.font.size = Pt(8)
+                    p3.font.color.rgb = RGBColor(248, 250, 252)
 
                 # SLIDE B: DETAIL DATA GRID TABLE SLIDE FOR THIS DIMENSION (VITAL PARETO ONLY)
                 grid_dim = grid_by_dim.get(dim_key, [])
