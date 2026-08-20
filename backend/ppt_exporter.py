@@ -396,6 +396,124 @@ class MTMPPTExporter:
                     series1.format.fill.solid()
                     series1.format.fill.fore_color.rgb = RGBColor(37, 99, 235)
 
+            # Slide 1.1: Service Level Per Grup Brand (Executive KPI Breakdown per Grup Brand)
+            grid_by_dim = export_data.get("grid_by_dim", {})
+            gb_grid = grid_by_dim.get("grup_brand", [])
+            if not gb_grid and export_data.get("grid"):
+                gb_grid = export_data.get("grid", [])
+
+            if gb_grid:
+                slide_gb = get_or_create_content_slide()
+
+                title_box_gb = slide_gb.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
+                tf_gb = title_box_gb.text_frame
+                tf_gb.word_wrap = True
+                p_gb = tf_gb.paragraphs[0]
+                p_gb.text = f"1.1 SERVICE LEVEL PER GRUP BRAND ({month_label})"
+                p_gb.font.size = Pt(17)
+                p_gb.font.bold = True
+                p_gb.font.color.rgb = RGBColor(192, 0, 0)
+
+                p_sub_gb = tf_gb.add_paragraph()
+                p_sub_gb.text = f"{filter_info} | Performa Pengiriman (SL Kirim) & Realisasi (SL Realisasi) Per Grup Brand"
+                p_sub_gb.font.size = Pt(8.5)
+                p_sub_gb.font.bold = True
+                p_sub_gb.font.color.rgb = RGBColor(100, 100, 100)
+
+                # Left Side: Clustered Column Chart (SL Kirim vs SL Realisasi per GB)
+                chart_data_gb = CategoryChartData()
+                chart_data_gb.categories = [str(r.get('name', '')) for r in gb_grid]
+                chart_data_gb.add_series('SL Kirim (%)', [round(float(r.get('sl_kirim', 0)), 1) for r in gb_grid])
+                chart_data_gb.add_series('SL Realisasi (%)', [round(float(r.get('sl_realisasi', 0)), 1) for r in gb_grid])
+
+                cx_gb, cy_gb = Inches(4.50), Inches(3.55)
+                chart_shape_gb = slide_gb.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(0.55), Inches(1.15), cx_gb, cy_gb, chart_data_gb)
+                chart_gb = chart_shape_gb.chart
+
+                chart_gb.has_legend = True
+                chart_gb.legend.position = XL_LEGEND_POSITION.TOP
+                chart_gb.legend.include_in_layout = False
+                chart_gb.legend.font.size = Pt(8.0)
+
+                plot_gb = chart_gb.plots[0]
+                plot_gb.has_data_labels = True
+                data_labels_gb = plot_gb.data_labels
+                data_labels_gb.font.size = Pt(7.0)
+                data_labels_gb.font.bold = True
+
+                val_axis_gb = chart_gb.value_axis
+                val_axis_gb.maximum_scale = 100
+                val_axis_gb.minimum_scale = 0
+                val_axis_gb.major_unit = 20
+                val_axis_gb.tick_labels.font.size = Pt(7.5)
+
+                cat_axis_gb = chart_gb.category_axis
+                cat_axis_gb.tick_labels.font.size = Pt(7.5)
+
+                if len(chart_gb.series) > 0:
+                    chart_gb.series[0].format.fill.solid()
+                    chart_gb.series[0].format.fill.fore_color.rgb = RGBColor(192, 0, 0)
+                if len(chart_gb.series) > 1:
+                    chart_gb.series[1].format.fill.solid()
+                    chart_gb.series[1].format.fill.fore_color.rgb = RGBColor(37, 99, 235)
+
+                # Right Side: Summary Data Table
+                table_rows_gb = len(gb_grid) + 1
+                table_cols_gb = 6
+                table_shape_gb = slide_gb.shapes.add_table(table_rows_gb, table_cols_gb, Inches(5.20), Inches(1.15), Inches(4.25), Inches(3.55))
+                table_gb = table_shape_gb.table
+
+                col_widths_gb = [Inches(0.85), Inches(0.85), Inches(0.85), Inches(0.55), Inches(0.55), Inches(0.60)]
+                for c_i, w in enumerate(col_widths_gb):
+                    table_gb.columns[c_i].width = w
+
+                headers_gb = ["Grup Brand", "Total Order", "Total Kirim", "SL Kirim", "SL Real.", "GAP"]
+                for c_i, h in enumerate(headers_gb):
+                    cell = table_gb.cell(0, c_i)
+                    cell.text = h
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = RGBColor(192, 0, 0)
+                    for p in cell.text_frame.paragraphs:
+                        p.font.bold = True
+                        p.font.color.rgb = RGBColor(255, 255, 255)
+                        p.font.size = Pt(7.5)
+                        p.alignment = PP_ALIGN.CENTER
+
+                for r_i, gb in enumerate(gb_grid):
+                    r_idx = r_i + 1
+                    name = str(gb.get('name', ''))
+                    tp_val = float(gb.get('total_pesan', gb.get('total_p', 0)))
+                    tk_val = float(gb.get('total_kirim', gb.get('total_k', 0)))
+                    sl_k = float(gb.get('sl_kirim', 0))
+                    sl_r = float(gb.get('sl_realisasi', 0))
+                    gap = sl_r - sl_k
+
+                    vals = [
+                        name,
+                        f"{tp_val:,.0f}" if tp_val >= 1000 else f"{tp_val:.0f}",
+                        f"{tk_val:,.0f}" if tk_val >= 1000 else f"{tk_val:.0f}",
+                        f"{sl_k:.1f}%",
+                        f"{sl_r:.1f}%",
+                        f"{gap:+.1f}%"
+                    ]
+
+                    for c_i, val_str in enumerate(vals):
+                        cell = table_gb.cell(r_idx, c_i)
+                        cell.text = val_str
+                        cell.margin_left = Pt(2)
+                        cell.margin_right = Pt(2)
+                        cell.margin_top = Pt(1)
+                        cell.margin_bottom = Pt(1)
+                        for p in cell.text_frame.paragraphs:
+                            p.font.size = Pt(7.0)
+                            if c_i in [1, 2]:
+                                p.alignment = PP_ALIGN.RIGHT
+                            elif c_i in [0, 3, 4, 5]:
+                                p.alignment = PP_ALIGN.CENTER
+                            if c_i == 5:
+                                p.font.bold = True
+                                p.font.color.rgb = RGBColor(34, 197, 94) if gap >= 0 else RGBColor(220, 38, 38)
+
         # Slide 2+: Dedicated Pareto & Vital Detail Grid Slides Per Dimension
         if modules.get("pareto_sheets", True) or modules.get("detail_grid", True):
             pareto_data = export_data.get("pareto", {})
