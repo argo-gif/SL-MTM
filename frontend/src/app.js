@@ -215,35 +215,23 @@ class DashboardApp {
 
 
 
-    // PPT Export Modal
-    const exportModal = document.getElementById('exportModal');
+    // PPT Direct Export (Cetak Semua PPT Langsung Tanpa Modal)
     const btnOpenExport = document.getElementById('btnOpenExportModal');
-    const btnCloseExport = document.getElementById('btnCloseExportModal');
-    const exportForm = document.getElementById('exportForm');
 
-    btnOpenExport?.addEventListener('click', () => {
-      if (exportModal) exportModal.style.display = 'flex';
-    });
+    btnOpenExport?.addEventListener('click', async () => {
+      if (btnOpenExport.disabled) return;
 
-    btnCloseExport?.addEventListener('click', () => {
-      if (exportModal) exportModal.style.display = 'none';
-    });
-
-    exportForm?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btnConfirm = document.getElementById('btnConfirmExport');
-      if (btnConfirm) {
-        btnConfirm.disabled = true;
-        btnConfirm.textContent = 'Mengekspor Slide PPT...';
-      }
+      const originalText = btnOpenExport.textContent;
+      btnOpenExport.disabled = true;
+      btnOpenExport.textContent = '⏳ Mengekspor PPT...';
 
       try {
         const payload = {
           ...this.activeFilters,
           selected_modules: {
-            kpi_summary: document.getElementById('chkKpiSummary').checked,
-            pareto_sheets: document.getElementById('chkParetoSheets').checked,
-            detail_grid: document.getElementById('chkDetailGrid').checked
+            kpi_summary: true,
+            pareto_sheets: true,
+            detail_grid: true
           }
         };
 
@@ -263,14 +251,11 @@ class DashboardApp {
         document.body.appendChild(a);
         a.click();
         a.remove();
-        if (exportModal) exportModal.style.display = 'none';
       } catch (err) {
         alert(err.message || 'Gagal ekspor PPT.');
       } finally {
-        if (btnConfirm) {
-          btnConfirm.disabled = false;
-          btnConfirm.textContent = 'Unduh Laporan PPT';
-        }
+        btnOpenExport.disabled = false;
+        btnOpenExport.textContent = originalText;
       }
     });
 
