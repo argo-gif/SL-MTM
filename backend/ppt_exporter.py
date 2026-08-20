@@ -283,23 +283,28 @@ class MTMPPTExporter:
                 p2.font.color.rgb = RGBColor(120, 120, 120)
                 p2.alignment = PP_ALIGN.CENTER
 
-            # Monthly Performance Trend Line Chart (Grafik Trend Service Level Kirim & Realisasi)
+            # Monthly Performance Trend Bar Chart (Grafik Batang / Column Clustered MTM Dashboard Style)
             trend_data = export_data.get("trend", [])
             if trend_data:
                 chart_data = CategoryChartData()
                 chart_data.categories = [format_month_label(r.get("month", "")) for r in trend_data]
                 chart_data.add_series('SL Kirim (%)', [round(float(r.get('sl_kirim', 0)), 1) for r in trend_data])
                 chart_data.add_series('SL Realisasi (%)', [round(float(r.get('sl_realisasi', 0)), 1) for r in trend_data])
-                chart_data.add_series('Target Benchmark (85%)', [85.0 for _ in trend_data])
 
                 x, y, cx, cy = Inches(0.6), Inches(2.55), Inches(8.8), Inches(2.65)
-                chart_shape = slide_kpi.shapes.add_chart(XL_CHART_TYPE.LINE_MARKERS, x, y, cx, cy, chart_data)
+                chart_shape = slide_kpi.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
                 chart = chart_shape.chart
 
                 chart.has_legend = True
                 chart.legend.position = XL_LEGEND_POSITION.TOP
                 chart.legend.include_in_layout = False
                 chart.legend.font.size = Pt(8.5)
+
+                plot = chart.plots[0]
+                plot.has_data_labels = True
+                data_labels = plot.data_labels
+                data_labels.font.size = Pt(7.5)
+                data_labels.font.bold = True
 
                 # Format Value & Category Axes cleanly
                 val_axis = chart.value_axis
@@ -311,24 +316,18 @@ class MTMPPTExporter:
                 cat_axis = chart.category_axis
                 cat_axis.tick_labels.font.size = Pt(8)
 
-                # Style Series
+                # Style Series Fills
                 # Series 0: SL Kirim (Konimex Primary Red)
                 if len(chart.series) > 0:
                     series0 = chart.series[0]
-                    series0.format.line.color.rgb = RGBColor(192, 0, 0)
-                    series0.format.line.width = Pt(2.5)
+                    series0.format.fill.solid()
+                    series0.format.fill.fore_color.rgb = RGBColor(192, 0, 0)
 
-                # Series 1: SL Realisasi (Bright Red / Orange-Red)
+                # Series 1: SL Realisasi (Bright Red / Crimson Accent)
                 if len(chart.series) > 1:
                     series1 = chart.series[1]
-                    series1.format.line.color.rgb = RGBColor(220, 38, 38)
-                    series1.format.line.width = Pt(2.5)
-
-                # Series 2: Target Benchmark 85% (Gold / Yellow Accent)
-                if len(chart.series) > 2:
-                    series2 = chart.series[2]
-                    series2.format.line.color.rgb = RGBColor(234, 179, 8)
-                    series2.format.line.width = Pt(1.5)
+                    series1.format.fill.solid()
+                    series1.format.fill.fore_color.rgb = RGBColor(220, 38, 38)
 
         # Slide 2: Pareto Multi-Dimension Analysis Slide
         if modules.get("pareto_sheets", True):
