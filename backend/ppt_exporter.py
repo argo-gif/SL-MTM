@@ -225,7 +225,7 @@ class MTMPPTExporter:
                 if shape.has_text_frame and shape.text_frame.text in ["Title 4", "Click to add title"]:
                     shape.text_frame.text = ""
 
-            title_box = slide_kpi.shapes.add_textbox(Inches(0.6), Inches(0.9), Inches(8.8), Inches(0.65))
+            title_box = slide_kpi.shapes.add_textbox(Inches(0.6), Inches(0.85), Inches(8.8), Inches(0.55))
             tf = title_box.text_frame
             tf.word_wrap = True
             p = tf.paragraphs[0]
@@ -242,7 +242,7 @@ class MTMPPTExporter:
 
             # KPI Metric Cards (3 Cards)
             card_w = Inches(2.7)
-            card_h = Inches(1.15)
+            card_h = Inches(1.05)
             gap_w = Inches(0.35)
 
             metrics = [
@@ -253,7 +253,7 @@ class MTMPPTExporter:
 
             for i, (title, val, sub) in enumerate(metrics):
                 left = Inches(0.6) + i * (card_w + gap_w)
-                top = Inches(1.65)
+                top = Inches(1.45)
 
                 shape = slide_kpi.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, card_w, card_h)
                 shape.fill.solid()
@@ -272,7 +272,7 @@ class MTMPPTExporter:
 
                 p1 = tf_card.add_paragraph()
                 p1.text = val
-                p1.font.size = Pt(21)
+                p1.font.size = Pt(20)
                 p1.font.bold = True
                 p1.font.color.rgb = RGBColor(192, 0, 0) if "GAP" not in title else (RGBColor(34, 197, 94) if kpi.get('gap', 0) >= 0 else RGBColor(239, 68, 68))
                 p1.alignment = PP_ALIGN.CENTER
@@ -292,13 +292,24 @@ class MTMPPTExporter:
                 chart_data.add_series('SL Realisasi (%)', [round(float(r.get('sl_realisasi', 0)), 1) for r in trend_data])
                 chart_data.add_series('Target Benchmark (85%)', [85.0 for _ in trend_data])
 
-                x, y, cx, cy = Inches(0.6), Inches(3.0), Inches(8.8), Inches(3.35)
+                x, y, cx, cy = Inches(0.6), Inches(2.55), Inches(8.8), Inches(2.65)
                 chart_shape = slide_kpi.shapes.add_chart(XL_CHART_TYPE.LINE_MARKERS, x, y, cx, cy, chart_data)
                 chart = chart_shape.chart
 
                 chart.has_legend = True
                 chart.legend.position = XL_LEGEND_POSITION.TOP
                 chart.legend.include_in_layout = False
+                chart.legend.font.size = Pt(8.5)
+
+                # Format Value & Category Axes cleanly
+                val_axis = chart.value_axis
+                val_axis.maximum_scale = 100
+                val_axis.minimum_scale = 0
+                val_axis.major_unit = 20
+                val_axis.tick_labels.font.size = Pt(8)
+
+                cat_axis = chart.category_axis
+                cat_axis.tick_labels.font.size = Pt(8)
 
                 # Style Series
                 # Series 0: SL Kirim (Konimex Primary Red)
