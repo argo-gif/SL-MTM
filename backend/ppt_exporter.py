@@ -316,18 +316,18 @@ class MTMPPTExporter:
                 cat_axis = chart.category_axis
                 cat_axis.tick_labels.font.size = Pt(8)
 
-                # Style Series Fills
+                # Style Series Fills (High Contrast Color Distinction)
                 # Series 0: SL Kirim (Konimex Primary Red)
                 if len(chart.series) > 0:
                     series0 = chart.series[0]
                     series0.format.fill.solid()
                     series0.format.fill.fore_color.rgb = RGBColor(192, 0, 0)
 
-                # Series 1: SL Realisasi (Bright Red / Crimson Accent)
+                # Series 1: SL Realisasi (Royal Blue - High Contrast Distinction)
                 if len(chart.series) > 1:
                     series1 = chart.series[1]
                     series1.format.fill.solid()
-                    series1.format.fill.fore_color.rgb = RGBColor(220, 38, 38)
+                    series1.format.fill.fore_color.rgb = RGBColor(37, 99, 235)
 
         # Slide 2: Pareto Multi-Dimension Analysis Slide
         if modules.get("pareto_sheets", True):
