@@ -223,7 +223,7 @@ class DashboardApp {
 
       const originalText = btnOpenExport.textContent;
       btnOpenExport.disabled = true;
-      btnOpenExport.textContent = '⏳ Mengekspor PPT...';
+      btnOpenExport.textContent = '⏳ Mencetak PPT...';
 
       try {
         const payload = {
