@@ -1222,7 +1222,7 @@ class DashboardApp {
       <div class="tableau-legend-items">
         <div><span class="tableau-legend-dot" style="background: #DC2626; box-shadow: 0 0 6px #F87171;"></span> ⭐ Top #1 (Dominan)</div>
         <div><span class="tableau-legend-dot" style="background: #EA580C; box-shadow: 0 0 6px #FB923C;"></span> 🔥 Top #2-#3 (Dampak Tinggi)</div>
-        <div><span class="tableau-legend-dot" style="background: #D97706; box-shadow: 0 0 6px #FBBF24;"></span> 🟨 Vital 80% (Dampak Menengah)</div>
+        <div><span class="tableau-legend-dot" style="background: #D97706; box-shadow: 0 0 6px #FBBF24;"></span> 🟨 Pareto 80% (Dampak Menengah)</div>
         <div><span class="tableau-legend-dot" style="background: #1D4ED8; box-shadow: 0 0 6px #60A5FA;"></span> 🟦 Minor (< 20%)</div>
       </div>
     `;
@@ -1421,7 +1421,7 @@ class DashboardApp {
 
       const isVital = r.is_vital;
       const statusBadge = isVital
-        ? `<span style="font-size: 0.7rem; font-weight: 700; color: #FDE047; background: rgba(220,38,38,0.25); border: 1px solid #F87171; padding: 0.15rem 0.45rem; border-radius: 4px;">⭐ Vital 80%</span>`
+        ? `<span style="font-size: 0.7rem; font-weight: 700; color: #FDE047; background: rgba(220,38,38,0.25); border: 1px solid #F87171; padding: 0.15rem 0.45rem; border-radius: 4px;">⭐ Pareto 80%</span>`
         : `<span style="font-size: 0.7rem; font-weight: 600; color: #94A3B8; background: rgba(255,255,255,0.05); padding: 0.15rem 0.45rem; border-radius: 4px;">Minor</span>`;
 
       return `

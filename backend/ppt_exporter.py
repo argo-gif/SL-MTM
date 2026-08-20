@@ -405,7 +405,7 @@ class MTMPPTExporter:
                     start_num = chunk_idx * CHUNK_SIZE + 1
                     end_num = start_num + len(chunk_items) - 1
                     range_str = f"#{start_num} - #{end_num}" if total_p_chunks > 1 else f"1 - {len(vital_items)}"
-                    p_sub_p.text = f"{filter_info} | Vital Pareto 80% ({range_str} dari {len(vital_items)} Elemen)"
+                    p_sub_p.text = f"{filter_info} | Pareto 80% ({range_str} dari {len(vital_items)} Elemen)"
                     p_sub_p.font.size = Pt(8.5)
                     p_sub_p.font.bold = True
                     p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
@@ -479,7 +479,7 @@ class MTMPPTExporter:
                         tf_tile.margin_bottom = Pt(2)
 
                         p0 = tf_tile.paragraphs[0]
-                        p0.text = f"⭐ VITAL #{item_global_idx}: {str(item.get('name', '-'))}"
+                        p0.text = f"⭐ PARETO #{item_global_idx}: {str(item.get('name', '-'))}"
                         p0.font.size = title_font
                         p0.font.bold = True
                         p0.font.color.rgb = RGBColor(255, 255, 255)
@@ -495,7 +495,7 @@ class MTMPPTExporter:
                         p2.font.size = sub_font
                         p2.font.color.rgb = RGBColor(248, 250, 252)
 
-                # SLIDE B: DETAIL DATA GRID TABLE SLIDE(S) FOR THIS DIMENSION (VITAL PARETO ONLY)
+                # SLIDE B: DETAIL DATA GRID TABLE SLIDE(S) FOR THIS DIMENSION (PARETO ONLY)
                 grid_dim = grid_by_dim.get(dim_key, [])
                 if not grid_dim and export_data.get("grid"):
                     grid_dim = export_data.get("grid", [])
@@ -518,7 +518,7 @@ class MTMPPTExporter:
                     tf_g.word_wrap = True
                     p_g = tf_g.paragraphs[0]
                     part_suffix = f" (BAGIAN {chunk_idx+1}/{total_g_chunks})" if total_g_chunks > 1 else ""
-                    p_g.text = f"{section_idx}.2 TABEL DETAIL TRANSAKSI - VITAL PARETO {dim_label}{part_suffix} ({month_label})"
+                    p_g.text = f"{section_idx}.2 TABEL DETAIL TRANSAKSI - PARETO {dim_label}{part_suffix} ({month_label})"
                     p_g.font.size = Pt(14 if total_g_chunks > 1 else 15)
                     p_g.font.bold = True
                     p_g.font.color.rgb = RGBColor(192, 0, 0)
@@ -527,7 +527,7 @@ class MTMPPTExporter:
                     start_num = chunk_idx * CHUNK_SIZE + 1
                     end_num = start_num + len(chunk_grid) - 1
                     range_str = f"#{start_num} - #{end_num}" if total_g_chunks > 1 else f"1 - {len(vital_grid)}"
-                    p_sub_g.text = f"{filter_info} | Filter Vital Pareto 80% ({range_str} dari {len(vital_grid)} Elemen)"
+                    p_sub_g.text = f"{filter_info} | Filter Pareto 80% ({range_str} dari {len(vital_grid)} Elemen)"
                     p_sub_g.font.size = Pt(8.5)
                     p_sub_g.font.bold = True
                     p_sub_g.font.color.rgb = RGBColor(100, 100, 100)
@@ -539,7 +539,7 @@ class MTMPPTExporter:
                     for c_i, w in enumerate(g_col_widths):
                         g_table.columns[c_i].width = w
 
-                    headers_g = ["#", "Nama Elemen (Vital 80%)", "Total Order", "Total Kirim", "Total Realisasi", "Nilai Unfulfill", "SL Kirim", "SL Realisasi"]
+                    headers_g = ["#", "Nama Elemen (Pareto 80%)", "Total Order", "Total Kirim", "Total Realisasi", "Nilai Unfulfill", "SL Kirim", "SL Realisasi"]
                     for c, h in enumerate(headers_g):
                         cell = g_table.cell(0, c)
                         cell.text = h
