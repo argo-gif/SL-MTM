@@ -229,8 +229,8 @@ class MTMPPTExporter:
     def _generate_with_python_pptx(self, export_data: Dict[str, Any], output_path: str) -> str:
         prs = Presentation(self.template_path)
 
-        # Save reference to pre-existing slide 2 (Terima Kasih slide with Rocket background from Template PPT.pptx)
-        thanks_sld_id = prs.slides._sldIdLst[2] if len(prs.slides) > 2 else None
+        # Save reference to last slide (Terima Kasih slide from Template PPT.pptx)
+        thanks_sld_id = prs.slides._sldIdLst[-1] if len(prs.slides) > 1 else None
 
         filters = export_data.get("filters", {})
         kpi = export_data.get("kpi", {})
@@ -245,6 +245,32 @@ class MTMPPTExporter:
         filter_info = build_active_filters_summary(filters)
 
         content_layout = prs.slide_layouts[2] if len(prs.slide_layouts) > 2 else prs.slide_layouts[0]
+
+        # Helper to get or create content slide matching Template PPT.pptx slides
+        slide_cursor = 2
+
+        def get_or_create_content_slide():
+            nonlocal slide_cursor, thanks_sld_id
+            if slide_cursor < len(prs.slides) - 1:
+                slide = prs.slides[slide_cursor]
+            else:
+                slide = prs.slides.add_slide(content_layout)
+                if thanks_sld_id is not None:
+                    prs.slides._sldIdLst.remove(thanks_sld_id)
+                    prs.slides._sldIdLst.append(thanks_sld_id)
+
+            slide_cursor += 1
+
+            for sp in list(slide.shapes):
+                sp._element.getparent().remove(sp._element)
+
+            if slide._element.cSld.bg is None and len(prs.slides) > 1 and prs.slides[1]._element.cSld.bg is not None:
+                src_bg = prs.slides[1]._element.cSld.bg
+                new_bg = copy.deepcopy(src_bg)
+                slide._element.cSld.insert(0, new_bg)
+
+            self._add_header_footer_branding(slide)
+            return slide
 
         # Slide 0: Cover Slide Title & Subtitle Population Inside Template Dashed Boxes
         if len(prs.slides) > 0:
@@ -446,7 +472,7 @@ class MTMPPTExporter:
 
                 # SLIDE A: PARETO TREEMAP SLIDE(S) FOR THIS DIMENSION
                 for chunk_idx, chunk_items in enumerate(pareto_chunks):
-                    slide_p = self._create_cloned_content_slide(prs, content_layout)
+                    slide_p = get_or_create_content_slide()
 
                     title_box_p = slide_p.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
                     tf_p = title_box_p.text_frame
@@ -568,7 +594,7 @@ class MTMPPTExporter:
                 total_g_chunks = len(grid_chunks)
 
                 for chunk_idx, chunk_grid in enumerate(grid_chunks):
-                    slide_g = self._create_cloned_content_slide(prs, content_layout)
+                    slide_g = get_or_create_content_slide()
 
                     title_box_g = slide_g.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
                     tf_g = title_box_g.text_frame
@@ -645,8 +671,14 @@ class MTMPPTExporter:
 
                 section_idx += 1
 
-        # Move original pre-existing Slide 2 (Terima Kasih Slide with Rocket Background from Template PPT.pptx) to the end
-        if thanks_sld_id is not None:
+        # Clean up any unused pre-created template slides between slide_cursor and thanks_sld_id
+        while len(prs.slides) > slide_cursor + 1:
+            rId = prs.slides._sldIdLst[slide_cursor].rId
+            prs.part.drop_rel(rId)
+            del prs.slides._sldIdLst[slide_cursor]
+
+        # Ensure thanks_sld_id remains as the final slide
+        if thanks_sld_id is not None and prs.slides._sldIdLst[-1] != thanks_sld_id:
             prs.slides._sldIdLst.remove(thanks_sld_id)
             prs.slides._sldIdLst.append(thanks_sld_id)
 
