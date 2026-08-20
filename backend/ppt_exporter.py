@@ -178,6 +178,12 @@ class MTMPPTExporter:
     def _generate_with_python_pptx(self, export_data: Dict[str, Any], output_path: str) -> str:
         prs = Presentation(self.template_path)
 
+        # Clean up pre-existing extra template slides beyond Slide 0 and Slide 1
+        while len(prs.slides) > 2:
+            rId = prs.slides._sldIdLst[2].rId
+            prs.part.drop_rel(rId)
+            del prs.slides._sldIdLst[2]
+
         filters = export_data.get("filters", {})
         kpi = export_data.get("kpi", {})
         pareto = export_data.get("pareto", {})
@@ -190,7 +196,7 @@ class MTMPPTExporter:
 
         filter_info = build_active_filters_summary(filters)
 
-        content_layout = prs.slide_layouts[2] if len(prs.slide_layouts) > 2 else prs.slide_layouts[0]
+        content_layout = prs.slide_layouts[9] if len(prs.slide_layouts) > 9 else prs.slide_layouts[0]
 
         # Slide 0: Cover Slide Title & Subtitle Population Inside Template Dashed Boxes
         if len(prs.slides) > 0:
@@ -350,89 +356,63 @@ class MTMPPTExporter:
                     series1.format.fill.solid()
                     series1.format.fill.fore_color.rgb = RGBColor(37, 99, 235)
 
-        # Slide 2: Pareto Multi-Dimension Analysis Slide
-        if modules.get("pareto_sheets", True):
-            slide_pareto = prs.slides.add_slide(content_layout)
+        # Slide 2+: Dedicated Pareto & Vital Detail Grid Slides Per Dimension
+        if modules.get("pareto_sheets", True) or modules.get("detail_grid", True):
+            pareto_data = export_data.get("pareto", {})
+            grid_by_dim = export_data.get("grid_by_dim", {})
 
-            title_box2 = slide_pareto.shapes.add_textbox(Inches(0.6), Inches(1.0), Inches(8.8), Inches(0.6))
-            tf2 = title_box2.text_frame
-            p = tf2.paragraphs[0]
-            p.text = f"2. ANALISIS PARETO UNFULLFILL MULTI-DIMENSI ({month_label})"
-            p.font.size = Pt(17)
-            p.font.bold = True
-            p.font.color.rgb = RGBColor(192, 0, 0)
-
-            p_sub2 = tf2.add_paragraph()
-            p_sub2.text = filter_info
-            p_sub2.font.size = Pt(8.5)
-            p_sub2.font.bold = True
-            p_sub2.font.color.rgb = RGBColor(100, 100, 100)
-
-            dims = [
-                ("Alasan Keterlambatan", pareto.get("alasan", [])), 
-                ("Akun MTM Alias", pareto.get("mtm_alias", [])), 
-                ("Nama Cabang", pareto.get("cabang", [])), 
-                ("Grup Brand", pareto.get("grup_brand", [])), 
-                ("Item / Produk SKU", pareto.get("item", []))
+            dimensions_cfg = [
+                ("alasan", "ALASAN KETERLAMBATAN"),
+                ("mtm_alias", "AKUN MTM ALIAS"),
+                ("cabang", "NAMA CABANG"),
+                ("grup_brand", "GRUP BRAND"),
+                ("item", "ITEM / PRODUK SKU")
             ]
 
-            p_table = slide_pareto.shapes.add_table(6, 5, Inches(0.6), Inches(1.7), Inches(8.8), Inches(3.2)).table
-            p_headers = ["Dimensi Sheet", "Akar Masalah / Elemen Terbesar", "Nilai Unfulfilled", "Kontribusi (%)", "Status Pareto"]
-            for c, h in enumerate(p_headers):
-                cell = p_table.cell(0, c)
-                cell.text = h
-                cell.fill.solid()
-                cell.fill.fore_color.rgb = RGBColor(192, 0, 0)
-                for p in cell.text_frame.paragraphs:
-                    p.font.bold = True
-                    p.font.color.rgb = RGBColor(255, 255, 255)
-                    p.font.size = Pt(9.5)
-                    p.alignment = PP_ALIGN.CENTER
+            section_idx = 2
+            for dim_key, dim_label in dimensions_cfg:
+                pareto_items = pareto_data.get(dim_key, [])
+                if not pareto_items:
+                    continue
 
-            for idx, (dim_name, items) in enumerate(dims):
-                row_i = idx + 1
-                top_item = items[0] if items else {"name": "-", "value": 0, "percentage": 0, "cumulative_percentage": 0}
-                val_num = top_item.get('value', 0)
-                val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f} unit"
+                # Identify Vital Pareto 80% items
+                vital_items = []
+                for item in pareto_items:
+                    prev_cum = float(item.get("cumulative_percentage", 0)) - float(item.get("percentage", 0))
+                    if prev_cum < 80.0:
+                        vital_items.append(item)
+                vital_names = set([v.get("name") for v in vital_items if v.get("name")])
 
-                p_table.cell(row_i, 0).text = dim_name
-                p_table.cell(row_i, 1).text = str(top_item.get("name", "-"))
-                p_table.cell(row_i, 2).text = val_str
-                p_table.cell(row_i, 3).text = f"{top_item.get('percentage', 0):.1f}%"
-                p_table.cell(row_i, 4).text = "⭐ Vital 80%" if top_item.get('cumulative_percentage', 0) <= 80 else "Minor"
+                # SLIDE A: PARETO ANALYSIS SLIDE FOR THIS DIMENSION
+                slide_p = prs.slides.add_slide(content_layout)
 
-                for c in range(5):
-                    cell = p_table.cell(row_i, c)
-                    for p in cell.text_frame.paragraphs:
-                        p.font.size = Pt(8.5)
-                        if c in [2, 3]:
-                            p.alignment = PP_ALIGN.RIGHT
-                        elif c in [0, 4]:
-                            p.alignment = PP_ALIGN.CENTER
+                # Title in top dashed box (Top: 0.45", Left: 0.55", W: 8.8", H: 0.60")
+                title_box_p = slide_p.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
+                tf_p = title_box_p.text_frame
+                tf_p.word_wrap = True
+                p_p = tf_p.paragraphs[0]
+                p_p.text = f"{section_idx}.1 ANALISIS PARETO UNFULLFILL - {dim_label} ({month_label})"
+                p_p.font.size = Pt(16)
+                p_p.font.bold = True
+                p_p.font.color.rgb = RGBColor(192, 0, 0)
 
-        # Slide 3: Detail Data Grid Table Slide
-        if modules.get("detail_grid", True):
-            slide_grid = prs.slides.add_slide(content_layout)
+                p_sub_p = tf_p.add_paragraph()
+                p_sub_p.text = filter_info
+                p_sub_p.font.size = Pt(8.5)
+                p_sub_p.font.bold = True
+                p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
 
-            title_box3 = slide_grid.shapes.add_textbox(Inches(0.6), Inches(1.0), Inches(8.8), Inches(0.6))
-            tf3 = title_box3.text_frame
-            p3 = tf3.paragraphs[0]
-            p3.text = f"3. TABEL DETAIL DATA ANALISIS TRANSACTION ({month_label})"
-            p3.font.size = Pt(17)
-            p3.font.bold = True
-            p3.font.color.rgb = RGBColor(192, 0, 0)
+                # Pareto Table for this dimension (display up to 9 rows)
+                rows_p_cnt = min(10, len(pareto_items) + 1)
+                p_table = slide_p.shapes.add_table(rows_p_cnt, 6, Inches(0.55), Inches(1.15), Inches(8.8), Inches(3.8)).table
 
-            p_sub3 = tf3.add_paragraph()
-            p_sub3.text = filter_info
-            p_sub3.font.size = Pt(8.5)
-            p_sub3.font.bold = True
-            p_sub3.font.color.rgb = RGBColor(100, 100, 100)
+                p_col_widths = [Inches(0.6), Inches(3.2), Inches(1.5), Inches(1.1), Inches(1.1), Inches(1.3)]
+                for c_i, w in enumerate(p_col_widths):
+                    p_table.columns[c_i].width = w
 
-            if grid:
-                g_table = slide_grid.shapes.add_table(min(11, len(grid) + 1), 8, Inches(0.6), Inches(1.7), Inches(8.8), Inches(3.3)).table
-                g_headers = ["#", "Nama Dimensi", "Total Order", "Total Kirim", "Total Realisasi", "Gap Selisih", "SL Kirim", "SL Realisasi"]
-                for c, h in enumerate(g_headers):
-                    cell = g_table.cell(0, c)
+                headers_p = ["No", "Nama Elemen / Kategori", "Nilai Unfulfilled", "Kontribusi (%)", "Kumulatif (%)", "Status Pareto"]
+                for c, h in enumerate(headers_p):
+                    cell = p_table.cell(0, c)
                     cell.text = h
                     cell.fill.solid()
                     cell.fill.fore_color.rgb = RGBColor(192, 0, 0)
@@ -442,27 +422,124 @@ class MTMPPTExporter:
                         p.font.size = Pt(8.5)
                         p.alignment = PP_ALIGN.CENTER
 
-                for r, row in enumerate(grid[:10]):
+                for r, item in enumerate(pareto_items[:9]):
                     r_idx = r + 1
+                    val_num = float(item.get("value", 0))
+                    val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f} unit"
+                    pct = float(item.get("percentage", 0))
+                    cum_pct = float(item.get("cumulative_percentage", 0))
+                    
+                    prev_cum = cum_pct - pct
+                    is_vital = (prev_cum < 80.0)
+                    status_str = "⭐ Vital 80%" if is_vital else "Trivial 20%"
+
                     vals = [
                         str(r_idx),
-                        str(row.get("name", "")),
-                        f"{row.get('total_pesan', 0):,.0f}",
-                        f"{row.get('total_kirim', 0):,.0f}",
-                        f"{row.get('total_realisasi', 0):,.0f}",
-                        f"{row.get('gap_unfulfill', 0):,.0f}",
-                        f"{row.get('sl_kirim', 0):.1f}%",
-                        f"{row.get('sl_realisasi', 0):.1f}%"
+                        str(item.get("name", "-")),
+                        val_str,
+                        f"{pct:.1f}%",
+                        f"{cum_pct:.1f}%",
+                        status_str
                     ]
+
                     for c, v in enumerate(vals):
-                        cell = g_table.cell(r_idx, c)
+                        cell = p_table.cell(r_idx, c)
                         cell.text = v
+                        if is_vital:
+                            cell.fill.solid()
+                            cell.fill.fore_color.rgb = RGBColor(254, 242, 242)
+
                         for p in cell.text_frame.paragraphs:
                             p.font.size = Pt(8)
-                            if c in [2, 3, 4, 5]:
+                            if is_vital:
+                                p.font.bold = True
+                                p.font.color.rgb = RGBColor(192, 0, 0)
+                            if c in [2, 3, 4]:
                                 p.alignment = PP_ALIGN.RIGHT
-                            elif c in [0, 6, 7]:
+                            elif c in [0, 5]:
                                 p.alignment = PP_ALIGN.CENTER
+
+                # SLIDE B: DETAIL DATA GRID TABLE SLIDE FOR THIS DIMENSION (VITAL PARETO ONLY)
+                grid_dim = grid_by_dim.get(dim_key, [])
+                if not grid_dim and export_data.get("grid"):
+                    grid_dim = export_data.get("grid", [])
+
+                if vital_names:
+                    vital_grid = [g for g in grid_dim if g.get("name") in vital_names]
+                    if not vital_grid:
+                        vital_grid = grid_dim[:5]
+                else:
+                    vital_grid = grid_dim[:5]
+
+                if vital_grid:
+                    slide_g = prs.slides.add_slide(content_layout)
+
+                    # Title in top dashed box (Top: 0.45", Left: 0.55", W: 8.8", H: 0.60")
+                    title_box_g = slide_g.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
+                    tf_g = title_box_g.text_frame
+                    tf_g.word_wrap = True
+                    p_g = tf_g.paragraphs[0]
+                    p_g.text = f"{section_idx}.2 TABEL DETAIL TRANSAKSI - VITAL PARETO {dim_label} ({month_label})"
+                    p_g.font.size = Pt(15)
+                    p_g.font.bold = True
+                    p_g.font.color.rgb = RGBColor(192, 0, 0)
+
+                    p_sub_g = tf_g.add_paragraph()
+                    p_sub_g.text = f"{filter_info} | Filter Vital Pareto 80%"
+                    p_sub_g.font.size = Pt(8.5)
+                    p_sub_g.font.bold = True
+                    p_sub_g.font.color.rgb = RGBColor(100, 100, 100)
+
+                    rows_g_cnt = min(11, len(vital_grid) + 1)
+                    g_table = slide_g.shapes.add_table(rows_g_cnt, 8, Inches(0.55), Inches(1.15), Inches(8.8), Inches(3.8)).table
+
+                    g_col_widths = [Inches(0.5), Inches(2.3), Inches(1.1), Inches(1.1), Inches(1.1), Inches(1.1), Inches(0.8), Inches(0.8)]
+                    for c_i, w in enumerate(g_col_widths):
+                        g_table.columns[c_i].width = w
+
+                    headers_g = ["#", "Nama Elemen (Vital 80%)", "Total Order", "Total Kirim", "Total Realisasi", "Nilai Unfulfill", "SL Kirim", "SL Realisasi"]
+                    for c, h in enumerate(headers_g):
+                        cell = g_table.cell(0, c)
+                        cell.text = h
+                        cell.fill.solid()
+                        cell.fill.fore_color.rgb = RGBColor(192, 0, 0)
+                        for p in cell.text_frame.paragraphs:
+                            p.font.bold = True
+                            p.font.color.rgb = RGBColor(255, 255, 255)
+                            p.font.size = Pt(8)
+                            p.alignment = PP_ALIGN.CENTER
+
+                    for r, row_data in enumerate(vital_grid[:10]):
+                        r_idx = r + 1
+                        sl_k_val = float(row_data.get("sl_kirim", 0))
+                        sl_r_val = float(row_data.get("sl_realisasi", 0))
+                        
+                        tp_val = row_data.get('total_p', row_data.get('total_pesan', 0))
+                        tk_val = row_data.get('total_k', row_data.get('total_kirim', 0))
+                        tr_val = row_data.get('total_r', row_data.get('total_realisasi', 0))
+                        gap_val = row_data.get('gap_unfulfill', 0)
+
+                        vals = [
+                            str(r_idx),
+                            str(row_data.get("name", "")),
+                            f"{tp_val:,.0f}",
+                            f"{tk_val:,.0f}",
+                            f"{tr_val:,.0f}",
+                            f"{gap_val:,.0f}",
+                            f"{sl_k_val:.1f}%",
+                            f"{sl_r_val:.1f}%"
+                        ]
+                        for c, v in enumerate(vals):
+                            cell = g_table.cell(r_idx, c)
+                            cell.text = v
+                            for p in cell.text_frame.paragraphs:
+                                p.font.size = Pt(8)
+                                if c in [2, 3, 4, 5]:
+                                    p.alignment = PP_ALIGN.RIGHT
+                                elif c in [0, 6, 7]:
+                                    p.alignment = PP_ALIGN.CENTER
+
+                section_idx += 1
 
         prs.save(output_path)
         print(f"Presentation saved successfully to {output_path}")
