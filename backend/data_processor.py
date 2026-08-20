@@ -58,7 +58,8 @@ class MTMDataProcessor:
         brand_groups = get_distinct_options('brand_group')
         items = get_distinct_options('item')
         raw_reasons = get_distinct_options('reason')
-        reasons = [r for r in raw_reasons if r and r != 'On-Time / Sesuai']
+        problem_reasons = [r for r in raw_reasons if r and r != 'On-Time / Sesuai' and r != 'Fulfill']
+        reasons = ['Fulfill'] + problem_reasons
 
         conn.close()
 
@@ -86,7 +87,7 @@ class MTMDataProcessor:
             if isinstance(arr, str): arr = [arr]
             return [
                 v for v in arr 
-                if v and str(v).strip() != "" and str(v).upper() not in ["ALL", "SEMUA BULAN", "SEMUA JENIS MTM", "SEMUA CABANG", "SEMUA ALIAS", "SEMUA GRUP BRAND", "SEMUA PRODUK / ITEM", "SEMUA"]
+                if v and str(v).strip() != "" and str(v).upper() not in ["ALL", "SEMUA BULAN", "SEMUA JENIS MTM", "SEMUA CABANG", "SEMUA ALIAS", "SEMUA GRUP BRAND", "SEMUA PRODUK / ITEM", "SEMUA ALASAN", "SEMUA"]
             ]
 
         def normalize_month(v):
@@ -183,9 +184,19 @@ class MTMDataProcessor:
 
         valid_r = clean_vals(filters.get('reasons')) or clean_vals(filters.get('reason'))
         if valid_r:
-            placeholders = ','.join(['?'] * len(valid_r))
-            where_clauses.append(f"reason_final IN ({placeholders})")
-            params.extend(valid_r)
+            has_fulfill = any(r in ['Fulfill', 'FULFILL', 'On-Time / Sesuai', 'ON-TIME / SESUAI'] for r in valid_r)
+            non_fulfill = [r for r in valid_r if r not in ['Fulfill', 'FULFILL', 'On-Time / Sesuai', 'ON-TIME / SESUAI']]
+            
+            conds = []
+            if non_fulfill:
+                placeholders = ','.join(['?'] * len(non_fulfill))
+                conds.append(f"reason_final IN ({placeholders})")
+                params.extend(non_fulfill)
+            if has_fulfill:
+                conds.append("reason_final = 'On-Time / Sesuai'")
+            
+            if conds:
+                where_clauses.append("(" + " OR ".join(conds) + ")")
 
         return " WHERE " + " AND ".join(where_clauses), params
 

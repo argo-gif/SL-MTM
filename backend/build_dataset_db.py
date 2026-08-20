@@ -103,6 +103,19 @@ def build_sqlite_db(xlsx_path="uploaded_active_dataset.xlsx", db_path="backend/d
                     if fname:
                         rec[fname] = val
 
+                try: idr_k = float(rec.get('idr_kirim') or 0)
+                except: idr_k = 0.0
+                try: idr_r = float(rec.get('idr_realisasi') or 0)
+                except: idr_r = 0.0
+                try: idr_p = float(rec.get('idr_pesan') or 0)
+                except: idr_p = 0.0
+                try: qty_k = float(rec.get('qty_kirim') or 0)
+                except: qty_k = 0.0
+                try: qty_r = float(rec.get('qty_realisasi') or 0)
+                except: qty_r = 0.0
+                try: qty_o = float(rec.get('qty_order') or 0)
+                except: qty_o = 0.0
+
                 rk = str(rec.get('reason_kirim') or '').strip()
                 rr = str(rec.get('reason_realisasi') or '').strip()
                 if rk != "" and rr == "": reason_final = rk
@@ -126,19 +139,6 @@ def build_sqlite_db(xlsx_path="uploaded_active_dataset.xlsx", db_path="backend/d
                 mtm_alias = str(rec.get('mtm_alias') or 'Unclassified').strip()
                 brand_group = str(rec.get('brand_group') or 'Unclassified').strip()
                 item_name = str(rec.get('item_name') or 'Unclassified').strip()
-
-                try: idr_k = float(rec.get('idr_kirim') or 0)
-                except: idr_k = 0.0
-                try: idr_r = float(rec.get('idr_realisasi') or 0)
-                except: idr_r = 0.0
-                try: idr_p = float(rec.get('idr_pesan') or 0)
-                except: idr_p = 0.0
-                try: qty_k = float(rec.get('qty_kirim') or 0)
-                except: qty_k = 0.0
-                try: qty_r = float(rec.get('qty_realisasi') or 0)
-                except: qty_r = 0.0
-                try: qty_o = float(rec.get('qty_order') or 0)
-                except: qty_o = 0.0
 
                 batch.append((
                     dt, month, mtm_type, branch, mtm_alias, brand_group, item_name,

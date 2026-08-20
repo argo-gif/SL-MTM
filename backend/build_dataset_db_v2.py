@@ -169,6 +169,19 @@ def build_db(xlsx_path=None, db_path=None):
                         if fname:
                             rec[fname] = val
 
+                    try: idr_k = float(rec.get('idr_kirim') or 0)
+                    except: idr_k = 0.0
+                    try: idr_r = float(rec.get('idr_realisasi') or 0)
+                    except: idr_r = 0.0
+                    try: idr_p = float(rec.get('idr_pesan') or 0)
+                    except: idr_p = 0.0
+                    try: qty_k = float(rec.get('qty_kirim') or 0)
+                    except: qty_k = 0.0
+                    try: qty_r = float(rec.get('qty_realisasi') or 0)
+                    except: qty_r = 0.0
+                    try: qty_o = float(rec.get('qty_order') or 0)
+                    except: qty_o = 0.0
+
                     rk = str(rec.get('reason_kirim') or '').strip()
                     rr = str(rec.get('reason_realisasi') or '').strip()
                     if rk != "" and rr == "": reason_final = rk
@@ -189,19 +202,6 @@ def build_db(xlsx_path=None, db_path=None):
                     p_code = str(rec.get('product_code') or '').strip()
                     item_name = str(rec.get('item_name') or 'Unclassified').strip()
                     item_display = f"{p_code} - {item_name}" if p_code else item_name
-
-                    try: idr_k = float(rec.get('idr_kirim') or 0)
-                    except: idr_k = 0.0
-                    try: idr_r = float(rec.get('idr_realisasi') or 0)
-                    except: idr_r = 0.0
-                    try: idr_p = float(rec.get('idr_pesan') or 0)
-                    except: idr_p = 0.0
-                    try: qty_k = float(rec.get('qty_kirim') or 0)
-                    except: qty_k = 0.0
-                    try: qty_r = float(rec.get('qty_realisasi') or 0)
-                    except: qty_r = 0.0
-                    try: qty_o = float(rec.get('qty_order') or 0)
-                    except: qty_o = 0.0
 
                     batch.append((
                         dt, month, mtm_type, branch, mtm_alias, brand_group, p_code, item_name, item_display,
@@ -388,6 +388,19 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
             if year:
                 year_counts[year] = year_counts.get(year, 0) + 1
 
+            try: idr_k = float(rec.get('idr_kirim') or 0)
+            except: idr_k = 0.0
+            try: idr_r = float(rec.get('idr_realisasi') or 0)
+            except: idr_r = 0.0
+            try: idr_p = float(rec.get('idr_pesan') or 0)
+            except: idr_p = 0.0
+            try: qty_k = float(rec.get('qty_kirim') or 0)
+            except: qty_k = 0.0
+            try: qty_r = float(rec.get('qty_realisasi') or 0)
+            except: qty_r = 0.0
+            try: qty_o = float(rec.get('qty_order') or 0)
+            except: qty_o = 0.0
+
             rk = rec.get('reason_kirim', '').strip()
             rr = rec.get('reason_realisasi', '').strip()
             if rk != "" and rr == "": reason_final = rk
@@ -419,19 +432,6 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
             p_code = rec.get('product_code', '').strip()
             item_name = rec.get('item_name', 'Unclassified').strip() or 'Unclassified'
             item_display = f"{p_code} - {item_name}" if p_code else item_name
-
-            try: idr_k = float(rec.get('idr_kirim') or 0)
-            except: idr_k = 0.0
-            try: idr_r = float(rec.get('idr_realisasi') or 0)
-            except: idr_r = 0.0
-            try: idr_p = float(rec.get('idr_pesan') or 0)
-            except: idr_p = 0.0
-            try: qty_k = float(rec.get('qty_kirim') or 0)
-            except: qty_k = 0.0
-            try: qty_r = float(rec.get('qty_realisasi') or 0)
-            except: qty_r = 0.0
-            try: qty_o = float(rec.get('qty_order') or 0)
-            except: qty_o = 0.0
 
             rows.append((
                 dt, month, year, month_num, mtm_type, branch, mtm_alias, brand_group, p_code, item_name, item_display,
