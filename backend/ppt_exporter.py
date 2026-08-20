@@ -196,7 +196,7 @@ class MTMPPTExporter:
 
         filter_info = build_active_filters_summary(filters)
 
-        content_layout = prs.slide_layouts[9] if len(prs.slide_layouts) > 9 else prs.slide_layouts[0]
+        content_layout = prs.slide_layouts[2] if len(prs.slide_layouts) > 2 else prs.slide_layouts[0]
 
         # Slide 0: Cover Slide Title & Subtitle Population Inside Template Dashed Boxes
         if len(prs.slides) > 0:
@@ -390,6 +390,8 @@ class MTMPPTExporter:
                 # SLIDE A: PARETO TREEMAP SLIDE(S) FOR THIS DIMENSION
                 for chunk_idx, chunk_items in enumerate(pareto_chunks):
                     slide_p = prs.slides.add_slide(content_layout)
+                    for sp in list(slide_p.shapes):
+                        sp._element.getparent().remove(sp._element)
 
                     title_box_p = slide_p.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
                     tf_p = title_box_p.text_frame
@@ -512,6 +514,8 @@ class MTMPPTExporter:
 
                 for chunk_idx, chunk_grid in enumerate(grid_chunks):
                     slide_g = prs.slides.add_slide(content_layout)
+                    for sp in list(slide_g.shapes):
+                        sp._element.getparent().remove(sp._element)
 
                     title_box_g = slide_g.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(8.8), Inches(0.60))
                     tf_g = title_box_g.text_frame
@@ -587,6 +591,36 @@ class MTMPPTExporter:
                                     p.alignment = PP_ALIGN.CENTER
 
                 section_idx += 1
+
+        # Final Closing Slide: Terima Kasih
+        slide_thanks = prs.slides.add_slide(content_layout)
+        for sp in list(slide_thanks.shapes):
+            sp._element.getparent().remove(sp._element)
+
+        tb_thanks = slide_thanks.shapes.add_textbox(Inches(1.0), Inches(2.20), Inches(8.0), Inches(2.50))
+        tf_t = tb_thanks.text_frame
+        tf_t.word_wrap = True
+
+        p1_t = tf_t.paragraphs[0]
+        p1_t.text = "TERIMA KASIH"
+        p1_t.font.size = Pt(36)
+        p1_t.font.bold = True
+        p1_t.font.color.rgb = RGBColor(192, 0, 0)
+        p1_t.alignment = PP_ALIGN.CENTER
+
+        p2_t = tf_t.add_paragraph()
+        p2_t.text = "Laporan Executive Service Level MTM"
+        p2_t.font.size = Pt(16)
+        p2_t.font.bold = True
+        p2_t.font.color.rgb = RGBColor(71, 85, 105)
+        p2_t.alignment = PP_ALIGN.CENTER
+
+        p3_t = tf_t.add_paragraph()
+        p3_t.text = "PT. KONIMEX — Inovasi dan Efisiensi Untuk Pertumbuhan Optimal"
+        p3_t.font.size = Pt(11)
+        p3_t.font.bold = True
+        p3_t.font.color.rgb = RGBColor(100, 116, 139)
+        p3_t.alignment = PP_ALIGN.CENTER
 
         prs.save(output_path)
         print(f"Presentation saved successfully to {output_path}")
