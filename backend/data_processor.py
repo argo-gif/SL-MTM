@@ -9,14 +9,22 @@ class MTMDataProcessor:
         root_dir = os.path.dirname(base_dir)
         if db_path and str(db_path).endswith('.xlsx'):
             db_path = None
-        self.db_path = db_path if db_path else os.path.join(base_dir, "dataset.db")
-        self.fallback_excel = fallback_excel if fallback_excel else os.path.join(root_dir, "uploaded_active_dataset.xlsx")
 
+        default_db = os.path.join(base_dir, "dataset.db")
+        if not db_path:
+            if os.environ.get("VERCEL") or not os.access(base_dir, os.W_OK):
+                tmp_db = os.path.join("/tmp", "dataset.db")
+                db_path = default_db if os.path.exists(default_db) else tmp_db
+            else:
+                db_path = default_db
+
+        self.db_path = db_path
+        self.fallback_excel = fallback_excel if fallback_excel else os.path.join(root_dir, "uploaded_active_dataset.xlsx")
 
     def get_connection(self):
         if not os.path.exists(self.db_path):
             from build_dataset_db_v2 import build_db
-            build_db()
+            build_db(xlsx_path=self.fallback_excel, db_path=self.db_path)
         return sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
 
 

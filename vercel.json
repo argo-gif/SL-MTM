@@ -1,13 +1,21 @@
 {
   "version": 2,
-  "name": "sl-mtm-frontend",
+  "name": "sl-mtm-dashboard",
   "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    },
     {
       "src": "frontend/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.py"
+    },
     {
       "src": "/(.*)",
       "dest": "/frontend/$1"

@@ -136,8 +136,9 @@ def upload_data():
 
         file = request.files["file"]
         root_dir = os.path.dirname(base_dir)
-        temp_xlsx = os.path.join(root_dir, f"temp_upload_{target_month.replace('-', '_')}.xlsx")
-        target_db = os.path.join(base_dir, "dataset.db")
+        temp_dir = "/tmp" if (os.environ.get("VERCEL") or not os.access(root_dir, os.W_OK)) else root_dir
+        temp_xlsx = os.path.join(temp_dir, f"temp_upload_{target_month.replace('-', '_')}.xlsx")
+        target_db = processor.db_path
 
         file.save(temp_xlsx)
 
@@ -185,7 +186,8 @@ def export_ppt():
             "grid": processor.get_detail_grid(data, limit=50),
             "selected_modules": data.get("selected_modules", {"kpi_summary": True, "pareto_sheets": True, "detail_grid": True})
         }
-        output_file = os.path.join(base_dir, "generated_mtm_report.pptx")
+        temp_dir = "/tmp" if (os.environ.get("VERCEL") or not os.access(base_dir, os.W_OK)) else base_dir
+        output_file = os.path.join(temp_dir, "generated_mtm_report.pptx")
         exporter.generate_presentation(export_data, output_file)
         if os.path.exists(output_file):
             return send_file(output_file, as_attachment=True, download_name="Laporan_Service_Level_MTM.pptx", mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
