@@ -54,7 +54,7 @@ def test_api():
     req = urllib.request.Request(f"{base_url}/api/analytics/pareto", data=pareto_payload, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req) as res:
         data = json.loads(res.read().decode())
-        print("Pareto Response Dimension:", data["dimension"])
+        print("Pareto Response Status:", data["status"])
         assert data["status"] == "success"
 
     print("\n--- ALL BACKEND REST API ENDPOINT TESTS PASSED SUCCESSFULLY! ---")

@@ -563,6 +563,11 @@ class DashboardApp {
         this.latestMonthDefault = opts.latest_month || '2026-08';
         this.defaultMTMTypeDefault = opts.default_mtm_type || 'KA';
 
+        const txtLastUpdate = document.getElementById('txtLastUpdateDB');
+        if (txtLastUpdate && opts.last_update) {
+          txtLastUpdate.textContent = opts.last_update;
+        }
+
         // 1. Set active filters first so populateDropdown sees selected values
         this.activeFilters.months = [this.latestMonthDefault];
         this.activeFilters.month = this.latestMonthDefault;

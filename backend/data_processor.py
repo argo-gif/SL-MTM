@@ -66,9 +66,17 @@ class MTMDataProcessor:
         default_mtm = "KA" if "KA" in mtm_types else (mtm_types[0] if mtm_types else "")
         latest_m = months[0] if months else "2026-08"
 
+        import datetime
+        db_file = self.db_path if os.path.exists(self.db_path) else self.fallback_excel
+        last_update_str = "-"
+        if os.path.exists(db_file):
+            mtime = os.path.getmtime(db_file)
+            last_update_str = datetime.datetime.fromtimestamp(mtime).strftime("%d/%m/%Y %H:%M")
+
         return {
             "months": months or ["2026-08"],
             "latest_month": latest_m,
+            "last_update": last_update_str,
             "mtm_types": mtm_types or ["KA"],
             "default_mtm_type": default_mtm,
             "branches": branches,

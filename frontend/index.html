@@ -14,9 +14,13 @@
   <div id="loginGateView" class="login-gate-container" style="display: none;">
     <div class="login-gate-card">
       <div class="login-gate-header">
-        <img src="images.jpeg" alt="Logo Konimex" class="login-konimex-logo">
+        <div class="login-logo-group">
+          <img src="images.jpeg" alt="Logo Konimex" class="login-konimex-logo">
+          <span style="color: rgba(255, 255, 255, 0.25); font-size: 1.5rem; font-weight: 300;">|</span>
+          <img src="MNJ.jpeg" alt="Logo MNJ" class="login-mnj-logo">
+        </div>
         <h2>Dashboard Pemenuhan Service Level MTM</h2>
-        <p>PT Konimex - Key Performance Indicator & Pareto Analytics</p>
+        <p>PT Konimex & PT MNJ - Key Performance Indicator & Pareto Analytics</p>
       </div>
       <form id="loginFormGate">
         <div class="form-group" style="text-align: left; margin-bottom: 1rem;">
@@ -38,13 +42,22 @@
     <!-- Application Header -->
     <header class="app-header">
       <div class="brand-section">
-        <img src="images.jpeg" alt="Logo Konimex" class="konimex-logo" id="headerLogo">
+        <div class="brand-logos">
+          <img src="images.jpeg" alt="Logo Konimex" class="konimex-logo" id="headerLogo">
+          <span style="color: rgba(255, 255, 255, 0.2); font-size: 1.3rem; font-weight: 300;">|</span>
+          <img src="MNJ.jpeg" alt="Logo MNJ" class="mnj-logo" id="headerLogoMNJ">
+        </div>
         <div class="brand-title">
           <h1>Dashboard Pemenuhan Service Level MTM</h1>
           <p>Interactive Key Performance Indicator & Pareto Analytics</p>
         </div>
       </div>
       <div class="user-profile" id="userProfile">
+        <div class="header-last-update-group" id="headerLastUpdateGroup" title="Waktu Pembaruan Terakhir Database">
+          <span class="header-update-icon">🕒</span>
+          <span class="header-update-label">LAST UPDATE DB:</span>
+          <span class="header-update-value" id="txtLastUpdateDB">-</span>
+        </div>
         <div class="header-metric-group">
           <span class="header-metric-label">METRIK:</span>
           <div class="switcher-toggle">
