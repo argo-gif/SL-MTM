@@ -23,8 +23,18 @@ class MTMDataProcessor:
 
     def get_connection(self):
         if not os.path.exists(self.db_path):
-            from build_dataset_db_v2 import build_db
-            build_db(xlsx_path=self.fallback_excel, db_path=self.db_path)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            gz_path = os.path.join(base_dir, "dataset.db.gz")
+            if os.path.exists(gz_path):
+                import gzip, shutil
+                print(f"Decompressing pre-built dataset {gz_path} to {self.db_path}...")
+                with gzip.open(gz_path, 'rb') as f_in:
+                    with open(self.db_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                print("Database decompression completed successfully.")
+            else:
+                from build_dataset_db_v2 import build_db
+                build_db(xlsx_path=self.fallback_excel, db_path=self.db_path)
         return sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
 
 

@@ -30,4 +30,5 @@ downloaded_api_test.pptx
 test_generated_report.pptx
 *.pptx
 *.xlsx
+!uploaded_active_dataset.xlsx
 ~$*
