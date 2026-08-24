@@ -565,7 +565,14 @@ class DashboardApp {
 
         const txtLastUpdate = document.getElementById('txtLastUpdateDB');
         if (txtLastUpdate && opts.last_update) {
-          txtLastUpdate.textContent = opts.last_update;
+          let formattedUpdate = opts.last_update;
+          if (formattedUpdate.includes('/')) {
+            const parts = formattedUpdate.split(' ')[0].split('/');
+            if (parts.length >= 2) {
+              formattedUpdate = `${parts[0]}/${parts[1]}`;
+            }
+          }
+          txtLastUpdate.textContent = formattedUpdate;
         }
 
         // 1. Set active filters first so populateDropdown sees selected values

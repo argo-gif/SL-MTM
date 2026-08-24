@@ -89,7 +89,7 @@ class MTMDataProcessor:
         last_update_str = "-"
         if os.path.exists(db_file):
             mtime = os.path.getmtime(db_file)
-            last_update_str = datetime.datetime.fromtimestamp(mtime).strftime("%d/%m/%Y %H:%M")
+            last_update_str = datetime.datetime.fromtimestamp(mtime).strftime("%d/%m")
 
         return {
             "months": months or ["2026-08"],
