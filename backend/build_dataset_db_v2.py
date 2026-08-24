@@ -71,6 +71,8 @@ def build_db(xlsx_path=None, db_path=None):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             delivery_date TEXT,
             month TEXT,
+            year INTEGER,
+            month_num INTEGER,
             mtm_type TEXT,
             branch TEXT,
             mtm_alias TEXT,
@@ -88,7 +90,6 @@ def build_db(xlsx_path=None, db_path=None):
             qty_realisasi REAL,
             qty_order REAL
         )
-
     ''')
 
     with zipfile.ZipFile(xlsx_path, 'r') as z:
@@ -190,10 +191,19 @@ def build_db(xlsx_path=None, db_path=None):
                     else: reason_final = 'On-Time / Sesuai'
 
                     dt = str(rec.get('delivery_date') or '').strip()
-                    if len(dt) >= 10 and '-' in dt: month = dt[:7]
+                    pm = parse_month_from_str(dt)
+                    if pm:
+                        month = pm
+                    elif len(dt) >= 10 and '-' in dt: month = dt[:7]
                     elif len(dt) >= 6 and dt[:6].isdigit(): month = f"{dt[:4]}-{dt[4:6]}"
                     elif len(dt) >= 7 and dt[:4].isdigit(): month = dt[:7]
                     else: month = '2026-01'
+
+                    try:
+                        yr_val = int(month[:4]) if len(month) >= 4 and month[:4].isdigit() else 2026
+                        mn_val = int(month[5:7]) if len(month) >= 7 and month[5:7].isdigit() else 1
+                    except:
+                        yr_val, mn_val = 2026, 1
 
                     mtm_type = str(rec.get('mtm_type') or 'Unclassified').strip()
                     branch = str(rec.get('branch') or 'Unclassified').strip()
@@ -204,7 +214,7 @@ def build_db(xlsx_path=None, db_path=None):
                     item_display = f"{p_code} - {item_name}" if p_code else item_name
 
                     batch.append((
-                        dt, month, mtm_type, branch, mtm_alias, brand_group, p_code, item_name, item_display,
+                        dt, month, yr_val, mn_val, mtm_type, branch, mtm_alias, brand_group, p_code, item_name, item_display,
                         rk, rr, reason_final, idr_k, idr_r, idr_p, qty_k, qty_r, qty_o
                     ))
                     total_rows += 1
@@ -212,10 +222,10 @@ def build_db(xlsx_path=None, db_path=None):
                     if len(batch) >= 20000:
                         cur.executemany('''
                             INSERT INTO dataset (
-                                delivery_date, month, mtm_type, branch, mtm_alias, brand_group, product_code, item_name, item_display,
+                                delivery_date, month, year, month_num, mtm_type, branch, mtm_alias, brand_group, product_code, item_name, item_display,
                                 reason_kirim, reason_realisasi, reason_final,
                                 idr_kirim, idr_realisasi, idr_pesan, qty_kirim, qty_realisasi, qty_order
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ''', batch)
                         conn.commit()
                         batch = []
@@ -226,15 +236,17 @@ def build_db(xlsx_path=None, db_path=None):
         if batch:
             cur.executemany('''
                 INSERT INTO dataset (
-                    delivery_date, month, mtm_type, branch, mtm_alias, brand_group, product_code, item_name, item_display,
+                    delivery_date, month, year, month_num, mtm_type, branch, mtm_alias, brand_group, product_code, item_name, item_display,
                     reason_kirim, reason_realisasi, reason_final,
                     idr_kirim, idr_realisasi, idr_pesan, qty_kirim, qty_realisasi, qty_order
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', batch)
             conn.commit()
 
         print("Building indexes for instant query performance...", flush=True)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_month ON dataset(month);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_year ON dataset(year);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_month_num ON dataset(month_num);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mtm_type ON dataset(mtm_type);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_branch ON dataset(branch);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mtm_alias ON dataset(mtm_alias);")
