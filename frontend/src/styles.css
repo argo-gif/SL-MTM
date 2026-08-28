@@ -1127,3 +1127,98 @@ body {
   justify-content: center;
   margin-top: 0.6rem;
 }
+
+/* --- PPT EXPORT MODAL STYLES --- */
+.export-modal-content {
+  max-width: 580px;
+  width: 92%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-xl);
+}
+
+.export-modal-subtitle {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  line-height: 1.45;
+}
+
+.export-quick-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.btn-xs {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  margin-left: 0.4rem;
+}
+
+.export-month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+@media (max-width: 520px) {
+  .export-month-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.export-month-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.export-month-card:hover {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.export-month-card.selected {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.25) 0%, rgba(185, 28, 28, 0.35) 100%);
+  border-color: var(--konimex-red);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.25);
+}
+
+.export-month-card input[type="checkbox"] {
+  accent-color: var(--konimex-red);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.export-month-card span {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.export-filter-notice {
+  font-size: 0.78rem;
+  color: var(--konimex-gold-light);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+}
+

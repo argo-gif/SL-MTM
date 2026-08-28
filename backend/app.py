@@ -165,26 +165,52 @@ def export_ppt():
         from ppt_exporter import MTMPPTExporter
         exporter = MTMPPTExporter()
         metric_type = data.get("metric_type", "idr")
+        selected_modules = data.get("selected_modules", {"kpi_summary": True, "pareto_sheets": True, "detail_grid": True})
+
+        months = data.get("months")
+        if not months:
+            single_m = data.get("month")
+            months = [single_m] if single_m else ["2026-08"]
+        if isinstance(months, str):
+            months = [months]
+
+        clean_months = sorted(list(set([str(m).strip() for m in months if m and str(m).strip()])))
+        if not clean_months:
+            clean_months = ["2026-08"]
+
+        period_reports = []
+        for m in clean_months:
+            m_filters = dict(data)
+            m_filters["month"] = m
+            m_filters["months"] = [m]
+
+            rep = {
+                "filters": m_filters,
+                "kpi": processor.get_kpi_scorecard(m_filters, metric_type=metric_type),
+                "trend": processor.get_monthly_trend(m_filters, metric_type=metric_type),
+                "pareto": {
+                    "alasan": processor.get_pareto_tree_maps(m_filters, dimension="alasan", metric_type=metric_type),
+                    "mtm_alias": processor.get_pareto_tree_maps(m_filters, dimension="mtm_alias", metric_type=metric_type),
+                    "cabang": processor.get_pareto_tree_maps(m_filters, dimension="cabang", metric_type=metric_type),
+                    "grup_brand": processor.get_pareto_tree_maps(m_filters, dimension="grup_brand", metric_type=metric_type),
+                    "item": processor.get_pareto_tree_maps(m_filters, dimension="item", metric_type=metric_type),
+                },
+                "grid_by_dim": {
+                    "alasan": processor.get_detail_grid(m_filters, dimension="alasan", metric_type=metric_type, limit=200),
+                    "mtm_alias": processor.get_detail_grid(m_filters, dimension="mtm_alias", metric_type=metric_type, limit=200),
+                    "cabang": processor.get_detail_grid(m_filters, dimension="cabang", metric_type=metric_type, limit=200),
+                    "grup_brand": processor.get_detail_grid(m_filters, dimension="grup_brand", metric_type=metric_type, limit=200),
+                    "item": processor.get_detail_grid(m_filters, dimension="item", metric_type=metric_type, limit=200),
+                },
+                "grid": processor.get_detail_grid(m_filters, limit=50),
+                "selected_modules": selected_modules
+            }
+            period_reports.append(rep)
+
         export_data = {
             "filters": data,
-            "kpi": processor.get_kpi_scorecard(data, metric_type=metric_type),
-            "trend": processor.get_monthly_trend(data, metric_type=metric_type),
-            "pareto": {
-                "alasan": processor.get_pareto_tree_maps(data, dimension="alasan", metric_type=metric_type),
-                "mtm_alias": processor.get_pareto_tree_maps(data, dimension="mtm_alias", metric_type=metric_type),
-                "cabang": processor.get_pareto_tree_maps(data, dimension="cabang", metric_type=metric_type),
-                "grup_brand": processor.get_pareto_tree_maps(data, dimension="grup_brand", metric_type=metric_type),
-                "item": processor.get_pareto_tree_maps(data, dimension="item", metric_type=metric_type),
-            },
-            "grid_by_dim": {
-                "alasan": processor.get_detail_grid(data, dimension="alasan", metric_type=metric_type, limit=200),
-                "mtm_alias": processor.get_detail_grid(data, dimension="mtm_alias", metric_type=metric_type, limit=200),
-                "cabang": processor.get_detail_grid(data, dimension="cabang", metric_type=metric_type, limit=200),
-                "grup_brand": processor.get_detail_grid(data, dimension="grup_brand", metric_type=metric_type, limit=200),
-                "item": processor.get_detail_grid(data, dimension="item", metric_type=metric_type, limit=200),
-            },
-            "grid": processor.get_detail_grid(data, limit=50),
-            "selected_modules": data.get("selected_modules", {"kpi_summary": True, "pareto_sheets": True, "detail_grid": True})
+            "period_reports": period_reports,
+            "selected_modules": selected_modules
         }
         temp_dir = "/tmp" if (os.environ.get("VERCEL") or not os.access(base_dir, os.W_OK)) else base_dir
         output_file = os.path.join(temp_dir, "generated_mtm_report.pptx")

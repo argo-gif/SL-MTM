@@ -18,6 +18,7 @@ class DashboardApp {
   };
   private activeParetoDimension: string = 'alasan';
   private isParetoUnfulfill: boolean = true;
+  private availableMonths: string[] = [];
 
   constructor() {
 
@@ -201,19 +202,73 @@ class DashboardApp {
 
 
 
-    // PPT Direct Export (Cetak Semua PPT Langsung Tanpa Modal)
+    // PPT Export Options Modal Setup
     const btnOpenExport = document.getElementById('btnOpenExportModal') as HTMLButtonElement;
+    const exportPPTModal = document.getElementById('exportPPTModal');
+    const btnCloseExport = document.getElementById('btnCloseExportModal');
+    const btnCancelExport = document.getElementById('btnCancelExportModal');
+    const btnConfirmExport = document.getElementById('btnConfirmExportPPT') as HTMLButtonElement;
+    const btnSelectAllExportMonths = document.getElementById('btnSelectAllExportMonths');
+    const btnResetExportMonths = document.getElementById('btnResetExportMonths');
 
-    btnOpenExport?.addEventListener('click', async () => {
-      if (btnOpenExport.disabled) return;
+    // Open Export Modal
+    btnOpenExport?.addEventListener('click', () => {
+      if (exportPPTModal) {
+        this.renderExportMonthGrid();
+        exportPPTModal.style.display = 'flex';
+      }
+    });
 
-      const originalText = btnOpenExport.textContent;
-      btnOpenExport.disabled = true;
-      btnOpenExport.textContent = '⏳ Mencetak PPT...';
+    // Close Export Modal
+    const closeExportModal = () => {
+      if (exportPPTModal) exportPPTModal.style.display = 'none';
+    };
+    btnCloseExport?.addEventListener('click', closeExportModal);
+    btnCancelExport?.addEventListener('click', closeExportModal);
+    exportPPTModal?.addEventListener('click', (e) => {
+      if (e.target === exportPPTModal) closeExportModal();
+    });
+
+    // Select All / Reset Month Checkboxes
+    btnSelectAllExportMonths?.addEventListener('click', () => {
+      const checkboxes = document.querySelectorAll('#exportMonthGrid input[type="checkbox"]') as NodeListOf<HTMLInputElement>;
+      checkboxes.forEach(cb => {
+        cb.checked = true;
+        cb.closest('.export-month-card')?.classList.add('selected');
+      });
+    });
+
+    btnResetExportMonths?.addEventListener('click', () => {
+      const activeMonth = this.activeFilters.month || this.latestMonthDefault || '2026-08';
+      const checkboxes = document.querySelectorAll('#exportMonthGrid input[type="checkbox"]') as NodeListOf<HTMLInputElement>;
+      checkboxes.forEach(cb => {
+        const isMatch = cb.value === activeMonth;
+        cb.checked = isMatch;
+        const card = cb.closest('.export-month-card');
+        if (isMatch) card?.classList.add('selected');
+        else card?.classList.remove('selected');
+      });
+    });
+
+    // Confirm Export PPT Action
+    btnConfirmExport?.addEventListener('click', async () => {
+      const checkedBoxes = Array.from(document.querySelectorAll('#exportMonthGrid input[type="checkbox"]:checked')) as HTMLInputElement[];
+      if (checkedBoxes.length === 0) {
+        alert('Silakan pilih minimal 1 bulan untuk dicetak ke laporan PPT.');
+        return;
+      }
+
+      // Collect selected months and sort chronologically ascending (e.g. 2026-07 then 2026-08)
+      const selectedMonths = checkedBoxes.map(cb => cb.value).sort();
+
+      const originalText = btnConfirmExport.textContent;
+      btnConfirmExport.disabled = true;
+      btnConfirmExport.textContent = '⏳ Mencetak PPT...';
 
       try {
         const payload = {
           ...this.activeFilters,
+          months: selectedMonths,
           selected_modules: {
             kpi_summary: true,
             pareto_sheets: true,
@@ -227,21 +282,23 @@ class DashboardApp {
           body: JSON.stringify(payload)
         });
 
-        if (!res.ok) throw new Error('Gagal mengunduh file PPT.');
+        if (!res.ok) throw new Error('Gagal mengunduh file PPT dari server.');
 
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Laporan_Service_Level_MTM_${this.activeFilters.month || 'Summary'}.pptx`;
+        const monthLabelStr = selectedMonths.length === 1 ? selectedMonths[0] : `${selectedMonths[0]}_sd_${selectedMonths[selectedMonths.length - 1]}`;
+        a.download = `Laporan_Service_Level_MTM_${monthLabelStr}.pptx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
+        closeExportModal();
       } catch (err: any) {
         alert(err.message || 'Gagal ekspor PPT.');
       } finally {
-        btnOpenExport.disabled = false;
-        btnOpenExport.textContent = originalText;
+        btnConfirmExport.disabled = false;
+        btnConfirmExport.textContent = originalText;
       }
     });
 
@@ -503,6 +560,7 @@ class DashboardApp {
       const json = await res.json();
       if (res.ok && json.status === 'success') {
         const opts: FilterOptions = json.data;
+        this.availableMonths = opts.months || [];
         this.populateDropdown('filterMonth', opts.months, opts.latest_month);
         this.populateDropdown('filterMTMType', opts.mtm_types, opts.default_mtm_type);
         this.populateDropdown('filterBranch', opts.branches);
@@ -520,6 +578,34 @@ class DashboardApp {
       console.warn('Backend API filter fetch fallback active');
       this.refreshDashboardData();
     }
+  }
+
+  private renderExportMonthGrid(): void {
+    const grid = document.getElementById('exportMonthGrid');
+    if (!grid) return;
+
+    const months = (this.availableMonths && this.availableMonths.length > 0)
+      ? [...this.availableMonths].sort()
+      : ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08'];
+
+    const activeMonth = this.activeFilters.month || '2026-08';
+
+    const monthNames: Record<string, string> = {
+      '01': 'JAN', '02': 'FEB', '03': 'MAR', '04': 'APR', '05': 'MEI', '06': 'JUN',
+      '07': 'JUL', '08': 'AGU', '09': 'SEP', '10': 'OKT', '11': 'NOV', '12': 'DES'
+    };
+
+    grid.innerHTML = months.map(mStr => {
+      const parts = String(mStr).split('-');
+      const label = parts.length === 2 ? `${monthNames[parts[1]] || parts[1]}-${parts[0]}` : mStr;
+      const isSelected = mStr === activeMonth;
+      return `
+        <label class="export-month-card ${isSelected ? 'selected' : ''}">
+          <input type="checkbox" value="${mStr}" ${isSelected ? 'checked' : ''} onchange="this.closest('.export-month-card').classList.toggle('selected', this.checked)">
+          <span>${label}</span>
+        </label>
+      `;
+    }).join('');
   }
 
   private async updateCascadingDropdowns(): Promise<void> {

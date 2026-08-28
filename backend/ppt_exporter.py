@@ -212,22 +212,14 @@ class MTMPPTExporter:
         # Save reference to last slide (Terima Kasih slide from Template PPT.pptx)
         thanks_sld_id = prs.slides._sldIdLst[-1] if len(prs.slides) > 1 else None
 
-        filters = export_data.get("filters", {})
-        kpi = export_data.get("kpi", {})
-        pareto = export_data.get("pareto", {})
-        grid = export_data.get("grid", [])
-        modules = export_data.get("selected_modules", {})
-
-        sel_month = filters.get("month", "2026-08")
-        sel_mtm = filters.get("mtm_type", "KA")
-        month_label = format_month_label(sel_month)
-
-        filter_info = build_active_filters_summary(filters)
+        period_reports = export_data.get("period_reports")
+        if not period_reports:
+            period_reports = [export_data]
 
         content_layout = prs.slide_layouts[2] if len(prs.slide_layouts) > 2 else prs.slide_layouts[0]
 
         # Helper to get or create content slide matching Template PPT.pptx slides
-        slide_cursor = 2
+        slide_cursor = 1
 
         def get_or_create_content_slide():
             nonlocal slide_cursor, thanks_sld_id
@@ -255,6 +247,18 @@ class MTMPPTExporter:
         if len(prs.slides) > 0:
             cover_slide = prs.slides[0]
 
+            if len(period_reports) > 1:
+                month_labels_list = [format_month_label(rep.get("filters", {}).get("month")) for rep in period_reports]
+                cover_filter_text = f"PERIODE FILTER: Bulan = {', '.join(month_labels_list)} ({len(period_reports)} Periode Terpilih)"
+                base_filters = export_data.get("filters", {})
+                t_val = base_filters.get("mtm_types") or base_filters.get("mtm_type")
+                if t_val:
+                    t_str = t_val[0] if isinstance(t_val, list) else str(t_val)
+                    if t_str and t_str.upper() not in ["ALL", "SEMUA"]:
+                        cover_filter_text += f" | MTM = {t_str}"
+            else:
+                cover_filter_text = build_active_filters_summary(period_reports[0].get("filters", {})).replace("📌 Filter Aktif: ", "PERIODE FILTER: ")
+
             # Populate Top Dashed Box (Placeholder 0)
             if len(cover_slide.placeholders) > 0:
                 ph0 = cover_slide.placeholders[0]
@@ -277,7 +281,7 @@ class MTMPPTExporter:
                 tf1 = ph1.text_frame
                 tf1.word_wrap = True
                 p2 = tf1.paragraphs[0]
-                p2.text = filter_info.replace("📌 Filter Aktif: ", "PERIODE FILTER: ")
+                p2.text = cover_filter_text
                 p2.font.size = Pt(9.5)
                 p2.font.bold = True
                 p2.font.color.rgb = RGBColor(255, 255, 255)
@@ -296,9 +300,23 @@ class MTMPPTExporter:
                 p1.font.size = Pt(12)
                 p1.font.color.rgb = RGBColor(255, 215, 0)
 
-        # Slide 1 (prs.slides[1]): Executive KPI Summary & Monthly Performance Trend Table
-        if modules.get("kpi_summary", True) and len(prs.slides) > 1:
-            slide_kpi = prs.slides[1]
+        # Iterate through period reports in chronological order
+        for rep_idx, report in enumerate(period_reports):
+            filters = report.get("filters", {})
+            kpi = report.get("kpi", {})
+            pareto = report.get("pareto", {})
+            grid = report.get("grid", [])
+            modules = report.get("selected_modules", {})
+
+            sel_month = filters.get("month", "2026-08")
+            sel_mtm = filters.get("mtm_type", "KA")
+            month_label = format_month_label(sel_month)
+
+            filter_info = build_active_filters_summary(filters)
+
+            # Slide 1: Executive KPI Summary & Monthly Performance Trend Table for this period
+            if modules.get("kpi_summary", True):
+                slide_kpi = get_or_create_content_slide()
 
             # Clear default title text
             for shape in list(slide_kpi.shapes):

@@ -410,6 +410,44 @@
     </div>
   </div>
 
+  <!-- PPT Export Modal -->
+  <div class="modal-overlay" id="exportPPTModal" style="display: none;">
+    <div class="modal-content export-modal-content">
+      <div class="modal-header">
+        <h3>📊 Opsi Cetak Laporan PowerPoint (.pptx)</h3>
+        <button class="btn-action btn-outline" id="btnCloseExportModal" style="padding: 0.2rem 0.5rem;">✕</button>
+      </div>
+      <div class="export-modal-body">
+        <p class="export-modal-subtitle">
+          Pilih 1 atau lebih periode (bulan) untuk dicetak. Urutan slide akan disusun secara kronologis (bulan terlama &rarr; terbaru).
+        </p>
+
+        <!-- Quick actions for month selection -->
+        <div class="export-quick-actions">
+          <label style="font-weight: 600; color: var(--text-main);">📅 Pilih Periode Bulan:</label>
+          <div>
+            <button class="btn-action btn-outline btn-xs" id="btnSelectAllExportMonths" type="button">✓ Pilih Semua Bulan</button>
+            <button class="btn-action btn-outline btn-xs" id="btnResetExportMonths" type="button">↺ Bulan Aktif Saja</button>
+          </div>
+        </div>
+
+        <!-- Month Checkbox Grid -->
+        <div class="export-month-grid" id="exportMonthGrid">
+          <!-- Dynamically populated month cards -->
+        </div>
+
+        <!-- Active Filter Notification -->
+        <div class="export-filter-notice" id="exportFilterNotice">
+          📌 Filter aktif saat ini (Cabang, MTM Type, Grup Brand, dll) akan diterapkan pada setiap periode terpilih.
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem;">
+        <button class="btn-action btn-outline" id="btnCancelExportModal" type="button">Batal</button>
+        <button class="btn-action btn-primary" id="btnConfirmExportPPT" type="button">🚀 Cetak PPT</button>
+      </div>
+    </div>
+  </div>
+
 
 
   </div> <!-- End #appDashboardContent -->

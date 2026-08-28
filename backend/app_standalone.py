@@ -308,27 +308,52 @@ class MTMAPIHandler(BaseHTTPRequestHandler):
                     from ppt_exporter import MTMPPTExporter
                     exporter = MTMPPTExporter()
                     metric_type = req_data.get("metric_type", "idr")
+                    selected_modules = req_data.get("selected_modules", {"kpi_summary": True, "pareto_sheets": True, "detail_grid": True})
+
+                    months = req_data.get("months")
+                    if not months:
+                        single_m = req_data.get("month")
+                        months = [single_m] if single_m else ["2026-08"]
+                    if isinstance(months, str):
+                        months = [months]
+
+                    clean_months = sorted(list(set([str(m).strip() for m in months if m and str(m).strip()])))
+                    if not clean_months:
+                        clean_months = ["2026-08"]
+
+                    period_reports = []
+                    for m in clean_months:
+                        m_filters = dict(req_data)
+                        m_filters["month"] = m
+                        m_filters["months"] = [m]
+
+                        rep = {
+                            "filters": m_filters,
+                            "kpi": processor.get_kpi_scorecard(m_filters, metric_type=metric_type),
+                            "trend": processor.get_monthly_trend(m_filters, metric_type=metric_type),
+                            "pareto": {
+                                "alasan": processor.get_pareto_tree_maps(m_filters, dimension="alasan", metric_type=metric_type),
+                                "mtm_alias": processor.get_pareto_tree_maps(m_filters, dimension="mtm_alias", metric_type=metric_type),
+                                "cabang": processor.get_pareto_tree_maps(m_filters, dimension="cabang", metric_type=metric_type),
+                                "grup_brand": processor.get_pareto_tree_maps(m_filters, dimension="grup_brand", metric_type=metric_type),
+                                "item": processor.get_pareto_tree_maps(m_filters, dimension="item", metric_type=metric_type),
+                            },
+                            "grid_by_dim": {
+                                "alasan": processor.get_detail_grid(m_filters, dimension="alasan", metric_type=metric_type, limit=200),
+                                "mtm_alias": processor.get_detail_grid(m_filters, dimension="mtm_alias", metric_type=metric_type, limit=200),
+                                "cabang": processor.get_detail_grid(m_filters, dimension="cabang", metric_type=metric_type, limit=200),
+                                "grup_brand": processor.get_detail_grid(m_filters, dimension="grup_brand", metric_type=metric_type, limit=200),
+                                "item": processor.get_detail_grid(m_filters, dimension="item", metric_type=metric_type, limit=200),
+                            },
+                            "grid": processor.get_detail_grid(m_filters, limit=50),
+                            "selected_modules": selected_modules
+                        }
+                        period_reports.append(rep)
+
                     export_data = {
                         "filters": req_data,
-                        "kpi": processor.get_kpi_scorecard(req_data, metric_type=metric_type),
-
-                        "trend": processor.get_monthly_trend(req_data, metric_type=metric_type),
-                        "pareto": {
-                            "alasan": processor.get_pareto_tree_maps(req_data, dimension="alasan", metric_type=metric_type),
-                            "mtm_alias": processor.get_pareto_tree_maps(req_data, dimension="mtm_alias", metric_type=metric_type),
-                            "cabang": processor.get_pareto_tree_maps(req_data, dimension="cabang", metric_type=metric_type),
-                            "grup_brand": processor.get_pareto_tree_maps(req_data, dimension="grup_brand", metric_type=metric_type),
-                            "item": processor.get_pareto_tree_maps(req_data, dimension="item", metric_type=metric_type),
-                        },
-                        "grid_by_dim": {
-                            "alasan": processor.get_detail_grid(req_data, dimension="alasan", metric_type=metric_type, limit=200),
-                            "mtm_alias": processor.get_detail_grid(req_data, dimension="mtm_alias", metric_type=metric_type, limit=200),
-                            "cabang": processor.get_detail_grid(req_data, dimension="cabang", metric_type=metric_type, limit=200),
-                            "grup_brand": processor.get_detail_grid(req_data, dimension="grup_brand", metric_type=metric_type, limit=200),
-                            "item": processor.get_detail_grid(req_data, dimension="item", metric_type=metric_type, limit=200),
-                        },
-                        "grid": processor.get_detail_grid(req_data, limit=50),
-                        "selected_modules": req_data.get("selected_modules", {"kpi_summary": True, "pareto_sheets": True, "detail_grid": True})
+                        "period_reports": period_reports,
+                        "selected_modules": selected_modules
                     }
                     output_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generated_mtm_report.pptx")
                     exporter.generate_presentation(export_data, output_file)
