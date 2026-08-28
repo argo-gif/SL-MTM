@@ -382,7 +382,7 @@ class MTMPPTExporter:
                 p2.alignment = PP_ALIGN.CENTER
 
             # Monthly Performance Trend Bar Chart (Grafik Batang / Column Clustered MTM Dashboard Style)
-            trend_data = export_data.get("trend", [])
+            trend_data = report.get("trend", [])
             if trend_data:
                 chart_data = CategoryChartData()
                 chart_data.categories = [format_month_label(r.get("month", "")) for r in trend_data]
@@ -428,10 +428,10 @@ class MTMPPTExporter:
                     series1.format.fill.fore_color.rgb = RGBColor(37, 99, 235)
 
             # Slide 1.1: Service Level Per Grup Brand (Executive KPI Breakdown per Grup Brand)
-            grid_by_dim = export_data.get("grid_by_dim", {})
+            grid_by_dim = report.get("grid_by_dim", {})
             gb_grid = grid_by_dim.get("grup_brand", [])
-            if not gb_grid and export_data.get("grid"):
-                gb_grid = export_data.get("grid", [])
+            if not gb_grid and report.get("grid"):
+                gb_grid = report.get("grid", [])
 
             if gb_grid and is_all_grup_brand_selected(filters):
                 slide_gb = get_or_create_content_slide()
@@ -545,249 +545,167 @@ class MTMPPTExporter:
                                 p.font.bold = True
                                 p.font.color.rgb = RGBColor(34, 197, 94) if gap >= 0 else RGBColor(220, 38, 38)
 
-        # Slide 2+: Dedicated Pareto & Vital Detail Grid Slides Per Dimension
-        if modules.get("pareto_sheets", True) or modules.get("detail_grid", True):
-            pareto_data = export_data.get("pareto", {})
-            grid_by_dim = export_data.get("grid_by_dim", {})
+            # Slide 2+: Dedicated Pareto & Vital Detail Grid Slides Per Dimension
+            if modules.get("pareto_sheets", True) or modules.get("detail_grid", True):
+                pareto_data = report.get("pareto", {})
+                grid_by_dim = report.get("grid_by_dim", {})
 
-            dimensions_cfg = [
-                ("alasan", "ALASAN KETERLAMBATAN"),
-                ("mtm_alias", "AKUN MTM ALIAS"),
-                ("cabang", "NAMA CABANG"),
-                ("grup_brand", "GRUP BRAND"),
-                ("item", "ITEM / PRODUK SKU")
-            ]
+                dimensions_cfg = [
+                    ("alasan", "ALASAN KETERLAMBATAN"),
+                    ("mtm_alias", "AKUN MTM ALIAS"),
+                    ("cabang", "NAMA CABANG"),
+                    ("grup_brand", "GRUP BRAND"),
+                    ("item", "ITEM / PRODUK SKU")
+                ]
 
-            dim_unit_map = {
-                "alasan": "Alasan",
-                "mtm_alias": "Akun MTM",
-                "cabang": "Cabang",
-                "grup_brand": "Grup Brand",
-                "item": "Item SKU"
-            }
+                dim_unit_map = {
+                    "alasan": "Alasan",
+                    "mtm_alias": "Akun MTM",
+                    "cabang": "Cabang",
+                    "grup_brand": "Grup Brand",
+                    "item": "Item SKU"
+                }
 
-            section_idx = 2
-            for dim_key, dim_label in dimensions_cfg:
-                if dim_key == "grup_brand" and not is_all_grup_brand_selected(filters):
-                    continue
+                section_idx = 2
+                for dim_key, dim_label in dimensions_cfg:
+                    if dim_key == "grup_brand" and not is_all_grup_brand_selected(filters):
+                        continue
 
-                unit_name = dim_unit_map.get(dim_key, "Elemen")
-                pareto_items = pareto_data.get(dim_key, [])
-                if not pareto_items:
-                    continue
+                    unit_name = dim_unit_map.get(dim_key, "Elemen")
+                    pareto_items = pareto_data.get(dim_key, [])
+                    if not pareto_items:
+                        continue
 
-                # Identify Vital Pareto 80% items
-                vital_items = []
-                for item in pareto_items:
-                    prev_cum = float(item.get("cumulative_percentage", 0)) - float(item.get("percentage", 0))
-                    if prev_cum < 80.0:
-                        vital_items.append(item)
-                vital_names = set([v.get("name") for v in vital_items if v.get("name")])
+                    # Identify Vital Pareto 80% items
+                    vital_items = []
+                    for item in pareto_items:
+                        prev_cum = float(item.get("cumulative_percentage", 0)) - float(item.get("percentage", 0))
+                        if prev_cum < 80.0:
+                            vital_items.append(item)
+                    vital_names = set([v.get("name") for v in vital_items if v.get("name")])
 
-                CHUNK_SIZE = 20
-                pareto_chunks = [vital_items[i:i + CHUNK_SIZE] for i in range(0, len(vital_items), CHUNK_SIZE)]
-                total_p_chunks = len(pareto_chunks)
+                    CHUNK_SIZE = 20
+                    pareto_chunks = [vital_items[i:i + CHUNK_SIZE] for i in range(0, len(vital_items), CHUNK_SIZE)]
+                    total_p_chunks = len(pareto_chunks)
 
-                # SLIDE A: PARETO TREEMAP SLIDE(S) FOR THIS DIMENSION
-                for chunk_idx, chunk_items in enumerate(pareto_chunks):
-                    slide_p = get_or_create_content_slide()
+                    # SLIDE A: PARETO TREEMAP SLIDE(S) FOR THIS DIMENSION
+                    for chunk_idx, chunk_items in enumerate(pareto_chunks):
+                        slide_p = get_or_create_content_slide()
 
-                    title_box_p = slide_p.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
-                    tf_p = title_box_p.text_frame
-                    tf_p.word_wrap = True
-                    p_p = tf_p.paragraphs[0]
-                    part_suffix = f" (BAGIAN {chunk_idx+1}/{total_p_chunks})" if total_p_chunks > 1 else ""
-                    p_p.text = f"{section_idx}.1 ANALISIS PARETO UNFULLFILL - {dim_label}{part_suffix} ({month_label})"
-                    p_p.font.size = Pt(15 if total_p_chunks > 1 else 16)
-                    p_p.font.bold = True
-                    p_p.font.color.rgb = RGBColor(192, 0, 0)
+                        title_box_p = slide_p.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
+                        tf_p = title_box_p.text_frame
+                        tf_p.word_wrap = True
+                        p_p = tf_p.paragraphs[0]
+                        part_suffix = f" (BAGIAN {chunk_idx+1}/{total_p_chunks})" if total_p_chunks > 1 else ""
+                        p_p.text = f"{section_idx}.1 ANALISIS PARETO UNFULLFILL - {dim_label}{part_suffix} ({month_label})"
+                        p_p.font.size = Pt(15 if total_p_chunks > 1 else 16)
+                        p_p.font.bold = True
+                        p_p.font.color.rgb = RGBColor(192, 0, 0)
 
-                    p_sub_p = tf_p.add_paragraph()
-                    start_num = chunk_idx * CHUNK_SIZE + 1
-                    end_num = start_num + len(chunk_items) - 1
-                    range_str = f"#{start_num} - #{end_num}" if total_p_chunks > 1 else f"1 - {len(vital_items)}"
-                    p_sub_p.text = f"{filter_info} | Pareto 80% ({range_str} dari {len(vital_items)} {unit_name})"
-                    p_sub_p.font.size = Pt(8.5)
-                    p_sub_p.font.bold = True
-                    p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
+                        p_sub_p = tf_p.add_paragraph()
+                        start_num = chunk_idx * CHUNK_SIZE + 1
+                        end_num = start_num + len(chunk_items) - 1
+                        range_str = f"#{start_num} - #{end_num}" if total_p_chunks > 1 else f"1 - {len(vital_items)}"
+                        p_sub_p.text = f"{filter_info} | Pareto 80% ({range_str} dari {len(vital_items)} {unit_name})"
+                        p_sub_p.font.size = Pt(8.5)
+                        p_sub_p.font.bold = True
+                        p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
 
-                    n_chunk = len(chunk_items)
-                    if n_chunk <= 3:
-                        cols_cnt = n_chunk
-                        tile_w = Inches(8.60 / cols_cnt)
-                        tile_h = Inches(2.20)
-                        gap_x = Inches(0.20)
-                        gap_y = Inches(0.20)
-                        top_start = Inches(1.35)
-                        title_font = Pt(11)
-                        val_font = Pt(15)
-                        sub_font = Pt(8.5)
-                    elif n_chunk <= 6:
-                        cols_cnt = 3
-                        tile_w = Inches(2.75)
-                        tile_h = Inches(1.65)
-                        gap_x = Inches(0.20)
-                        gap_y = Inches(0.18)
-                        top_start = Inches(1.15)
-                        title_font = Pt(10)
-                        val_font = Pt(13)
-                        sub_font = Pt(7.5)
-                    elif n_chunk <= 9:
-                        cols_cnt = 3
-                        tile_w = Inches(2.75)
-                        tile_h = Inches(1.12)
-                        gap_x = Inches(0.20)
-                        gap_y = Inches(0.12)
-                        top_start = Inches(1.15)
-                        title_font = Pt(9)
-                        val_font = Pt(11.5)
-                        sub_font = Pt(7)
-                    else: # 10 <= n_chunk <= 20
-                        cols_cnt = 4
-                        tile_w = Inches(2.05)
-                        tile_h = Inches(0.68)
+                        n_chunk = len(chunk_items)
+                        if n_chunk <= 3:
+                            cols_cnt = n_chunk
+                            tile_w = Inches(8.60 / cols_cnt)
+                            tile_h = Inches(2.20)
+                        elif n_chunk <= 6:
+                            cols_cnt = 3
+                            tile_w = Inches(2.78)
+                            tile_h = Inches(1.38)
+                        elif n_chunk <= 12:
+                            cols_cnt = 4
+                            tile_w = Inches(2.05)
+                            tile_h = Inches(0.95)
+                        else:
+                            cols_cnt = 5
+                            tile_w = Inches(1.62)
+                            tile_h = Inches(0.72)
+
+                        start_x = Inches(0.55)
+                        start_y = Inches(1.15)
                         gap_x = Inches(0.12)
-                        gap_y = Inches(0.06)
-                        top_start = Inches(1.15)
-                        title_font = Pt(7.5)
-                        val_font = Pt(9.5)
-                        sub_font = Pt(6.5)
+                        gap_y = Inches(0.12)
 
-                    for idx, item in enumerate(chunk_items):
-                        item_global_idx = start_num + idx
-                        r_i = idx // cols_cnt
-                        c_i = idx % cols_cnt
+                        for i, item in enumerate(chunk_items):
+                            row_idx = i // cols_cnt
+                            col_idx = i % cols_cnt
 
-                        left_pos = Inches(0.55) + c_i * (tile_w + gap_x)
-                        top_pos = top_start + r_i * (tile_h + gap_y)
+                            left = start_x + col_idx * (tile_w + gap_x)
+                            top = start_y + row_idx * (tile_h + gap_y)
 
-                        pct = float(item.get("percentage", 0))
-                        cum_pct = float(item.get("cumulative_percentage", 0))
-                        val_num = float(item.get("value", 0))
-                        val_str = f"Rp {val_num:,.0f}" if val_num >= 1000 else f"{val_num:,.0f}"
+                            shape = slide_p.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, tile_w, tile_h)
+                            shape.fill.solid()
 
-                        shape = slide_p.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_pos, top_pos, tile_w, tile_h)
-                        shape.fill.solid()
-                        shape.fill.fore_color.rgb = RGBColor(192, 0, 0) # Red Konimex
-                        shape.line.color.rgb = RGBColor(234, 179, 8) # Gold border
-                        shape.line.width = Pt(1.0)
+                            pct = float(item.get("percentage", 0))
+                            cum_pct = float(item.get("cumulative_percentage", 0))
+                            val = float(item.get("value", 0))
 
-                        tf_tile = shape.text_frame
-                        tf_tile.word_wrap = True
-                        tf_tile.margin_left = Pt(3)
-                        tf_tile.margin_right = Pt(3)
-                        tf_tile.margin_top = Pt(2)
-                        tf_tile.margin_bottom = Pt(2)
+                            if pct >= 20.0:
+                                shape.fill.fore_color.rgb = RGBColor(185, 28, 28)
+                            elif pct >= 10.0:
+                                shape.fill.fore_color.rgb = RGBColor(220, 38, 38)
+                            elif pct >= 5.0:
+                                shape.fill.fore_color.rgb = RGBColor(234, 88, 12)
+                            else:
+                                shape.fill.fore_color.rgb = RGBColor(217, 119, 6)
 
-                        p0 = tf_tile.paragraphs[0]
-                        p0.text = f"⭐ PARETO #{item_global_idx}: {str(item.get('name', '-'))}"
-                        p0.font.size = title_font
-                        p0.font.bold = True
-                        p0.font.color.rgb = RGBColor(255, 255, 255)
+                            shape.line.color.rgb = RGBColor(255, 255, 255)
 
-                        p1 = tf_tile.add_paragraph()
-                        p1.text = val_str
-                        p1.font.size = val_font
-                        p1.font.bold = True
-                        p1.font.color.rgb = RGBColor(255, 215, 0)
+                            if n_chunk <= 6:
+                                title_font, val_font, sub_font = Pt(9.5), Pt(14), Pt(8.0)
+                            elif n_chunk <= 12:
+                                title_font, val_font, sub_font = Pt(8.0), Pt(11), Pt(7.0)
+                            else:
+                                title_font, val_font, sub_font = Pt(7.0), Pt(9.5), Pt(6.0)
 
-                        p2 = tf_tile.add_paragraph()
-                        p2.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kum."
-                        p2.font.size = sub_font
-                        p2.font.color.rgb = RGBColor(248, 250, 252)
+                            if val >= 1_000_000_000:
+                                val_str = f"Rp {val/1_000_000_000:.2f} M"
+                            elif val >= 1_000_000:
+                                val_str = f"Rp {val/1_000_000:.1f} Jt"
+                            elif val >= 1_000:
+                                val_str = f"{val:,.0f}"
+                            else:
+                                val_str = f"{val:.0f}"
 
-                # SLIDE B: DETAIL DATA GRID TABLE SLIDE(S) FOR THIS DIMENSION (PARETO ONLY)
-                grid_dim = grid_by_dim.get(dim_key, [])
-                if not grid_dim and export_data.get("grid"):
-                    grid_dim = export_data.get("grid", [])
+                            item_global_idx = start_num + i
+                            tf_tile = shape.text_frame
+                            tf_tile.word_wrap = True
+                            tf_tile.margin_left = Pt(3)
+                            tf_tile.margin_right = Pt(3)
+                            tf_tile.margin_top = Pt(2)
+                            tf_tile.margin_bottom = Pt(2)
 
-                if vital_names:
-                    vital_grid = [g for g in grid_dim if g.get("name") in vital_names]
-                    if not vital_grid:
-                        vital_grid = grid_dim[:5]
-                else:
-                    vital_grid = grid_dim[:5]
+                            p0 = tf_tile.paragraphs[0]
+                            p0.text = f"⭐ PARETO #{item_global_idx}: {str(item.get('name', '-'))}"
+                            p0.font.size = title_font
+                            p0.font.bold = True
+                            p0.font.color.rgb = RGBColor(255, 255, 255)
 
-                grid_chunks = [vital_grid[i:i + CHUNK_SIZE] for i in range(0, len(vital_grid), CHUNK_SIZE)]
-                total_g_chunks = len(grid_chunks)
+                            p1 = tf_tile.add_paragraph()
+                            p1.text = val_str
+                            p1.font.size = val_font
+                            p1.font.bold = True
+                            p1.font.color.rgb = RGBColor(255, 215, 0)
 
-                for chunk_idx, chunk_grid in enumerate(grid_chunks):
-                    slide_g = get_or_create_content_slide()
+                            p2 = tf_tile.add_paragraph()
+                            p2.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kum."
+                            p2.font.size = sub_font
+                            p2.font.color.rgb = RGBColor(248, 250, 252)
 
-                    title_box_g = slide_g.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
-                    tf_g = title_box_g.text_frame
-                    tf_g.word_wrap = True
-                    p_g = tf_g.paragraphs[0]
-                    part_suffix = f" (BAGIAN {chunk_idx+1}/{total_g_chunks})" if total_g_chunks > 1 else ""
-                    p_g.text = f"{section_idx}.2 TABEL DETAIL TRANSAKSI - PARETO {dim_label}{part_suffix} ({month_label})"
-                    p_g.font.size = Pt(14 if total_g_chunks > 1 else 15)
-                    p_g.font.bold = True
-                    p_g.font.color.rgb = RGBColor(192, 0, 0)
+                    # SLIDE B: DETAIL DATA GRID TABLE SLIDE(S) FOR THIS DIMENSION (PARETO ONLY)
+                    grid_dim = grid_by_dim.get(dim_key, [])
+                    if not grid_dim and report.get("grid"):
+                        grid_dim = report.get("grid", [])
 
-                    p_sub_g = tf_g.add_paragraph()
-                    start_num = chunk_idx * CHUNK_SIZE + 1
-                    end_num = start_num + len(chunk_grid) - 1
-                    range_str = f"#{start_num} - #{end_num}" if total_g_chunks > 1 else f"1 - {len(vital_grid)}"
-                    p_sub_g.text = f"{filter_info} | Filter Pareto 80% ({range_str} dari {len(vital_grid)} {unit_name})"
-                    p_sub_g.font.size = Pt(8.5)
-                    p_sub_g.font.bold = True
-                    p_sub_g.font.color.rgb = RGBColor(100, 100, 100)
-
-                    rows_g_cnt = len(chunk_grid) + 1
-                    g_table = slide_g.shapes.add_table(rows_g_cnt, 8, Inches(0.55), Inches(1.15), Inches(8.8), Inches(3.8)).table
-
-                    g_col_widths = [Inches(0.5), Inches(2.3), Inches(1.1), Inches(1.1), Inches(1.1), Inches(1.1), Inches(0.8), Inches(0.8)]
-                    for c_i, w in enumerate(g_col_widths):
-                        g_table.columns[c_i].width = w
-
-                    headers_g = ["#", f"Nama {unit_name} (Pareto 80%)", "Total Order", "Total Kirim", "Total Realisasi", "Nilai Unfulfill", "SL Kirim", "SL Realisasi"]
-                    for c, h in enumerate(headers_g):
-                        cell = g_table.cell(0, c)
-                        cell.text = h
-                        cell.fill.solid()
-                        cell.fill.fore_color.rgb = RGBColor(192, 0, 0)
-                        for p in cell.text_frame.paragraphs:
-                            p.font.bold = True
-                            p.font.color.rgb = RGBColor(255, 255, 255)
-                            p.font.size = Pt(8.0)
-                            p.alignment = PP_ALIGN.CENTER
-
-                    for r, row_data in enumerate(chunk_grid):
-                        r_idx = r + 1
-                        global_r_idx = start_num + r
-                        sl_k_val = float(row_data.get("sl_kirim", 0))
-                        sl_r_val = float(row_data.get("sl_realisasi", 0))
-                        
-                        tp_val = row_data.get('total_p', row_data.get('total_pesan', 0))
-                        tk_val = row_data.get('total_k', row_data.get('total_kirim', 0))
-                        tr_val = row_data.get('total_r', row_data.get('total_realisasi', 0))
-                        gap_val = row_data.get('gap_unfulfill', 0)
-
-                        vals = [
-                            str(global_r_idx),
-                            str(row_data.get("name", "")),
-                            f"{tp_val:,.0f}",
-                            f"{tk_val:,.0f}",
-                            f"{tr_val:,.0f}",
-                            f"{gap_val:,.0f}",
-                            f"{sl_k_val:.1f}%",
-                            f"{sl_r_val:.1f}%"
-                        ]
-                        for c, v in enumerate(vals):
-                            cell = g_table.cell(r_idx, c)
-                            cell.text = v
-                            cell.margin_left = Pt(3)
-                            cell.margin_right = Pt(3)
-                            cell.margin_top = Pt(2)
-                            cell.margin_bottom = Pt(2)
-                            for p in cell.text_frame.paragraphs:
-                                p.font.size = Pt(7.5)
-                                if c in [2, 3, 4, 5]:
-                                    p.alignment = PP_ALIGN.RIGHT
-                                elif c in [0, 6, 7]:
-                                    p.alignment = PP_ALIGN.CENTER
-
-                section_idx += 1
+                    section_idx += 1
 
         # Clean up any unused pre-created template slides between slide_cursor and thanks_sld_id
         while len(prs.slides) > slide_cursor + 1:
