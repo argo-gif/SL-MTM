@@ -374,13 +374,13 @@ class MTMDataProcessor:
             target_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
 
         if is_unfulfill:
-            val_col = f"(CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE {p_col} END)"
+            val_col = f"(CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE 0 END)"
         else:
             val_col = target_col
 
         where_sql, params = self._build_where_clause(filters)
 
-        if is_unfulfill:
+        if is_unfulfill and dimension.lower() == 'alasan':
             where_sql += " AND reason_final != 'On-Time / Sesuai'" if "WHERE" in where_sql else " WHERE reason_final != 'On-Time / Sesuai'"
 
         conn = self.get_connection()
@@ -448,7 +448,7 @@ class MTMDataProcessor:
                 SUM({p_col}) as total_p,
                 SUM({k_col}) as total_k,
                 SUM({r_col}) as total_r,
-                SUM(CASE WHEN reason_final != 'On-Time / Sesuai' THEN (CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE {p_col} END) ELSE 0 END) as gap_unfulfill
+                SUM(CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE 0 END) as gap_unfulfill
             FROM dataset {where_sql}
             GROUP BY {dim_col}
             ORDER BY gap_unfulfill DESC
