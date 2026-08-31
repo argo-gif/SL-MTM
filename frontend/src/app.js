@@ -14,7 +14,8 @@ class DashboardApp {
       mtm_aliases: [],
       brand_groups: [],
       items: [],
-      metric_type: 'idr'
+      metric_type: 'idr',
+      sl_type: 'sl_kirim'
     };
     this.activeParetoDimension = 'alasan';
     this.isParetoUnfulfill = true;
@@ -120,19 +121,42 @@ class DashboardApp {
       this.checkAuthenticationGate();
     });
 
-    // Trend Chart Metric Toggle
+    // SL Mode Toggle (SL Kirim vs SL Realisasi)
     const btnTrendKirim = document.getElementById('btnTrendSLKirim');
     const btnTrendRealisasi = document.getElementById('btnTrendSLRealisasi');
-    btnTrendKirim?.addEventListener('click', () => {
-      btnTrendKirim.classList.add('active');
-      btnTrendRealisasi?.classList.remove('active');
-      this.fetchTrendData();
-    });
-    btnTrendRealisasi?.addEventListener('click', () => {
-      btnTrendRealisasi.classList.add('active');
-      btnTrendKirim?.classList.remove('active');
-      this.fetchTrendData();
-    });
+    const btnParetoKirim = document.getElementById('btnParetoSLKirim');
+    const btnParetoRealisasi = document.getElementById('btnParetoSLRealisasi');
+
+    const updateSLMode = (slType) => {
+      this.activeFilters.sl_type = slType;
+      const isKirim = (slType === 'sl_kirim');
+
+      if (btnTrendKirim && btnTrendRealisasi) {
+        btnTrendKirim.classList.toggle('active', isKirim);
+        btnTrendRealisasi.classList.toggle('active', !isKirim);
+      }
+      if (btnParetoKirim && btnParetoRealisasi) {
+        btnParetoKirim.classList.toggle('active', isKirim);
+        btnParetoRealisasi.classList.toggle('active', !isKirim);
+      }
+
+      const badgePareto = document.getElementById('badgeParetoSLMode');
+      if (badgePareto) {
+        badgePareto.textContent = isKirim ? '⚠️ GAP: SL Kirim (Pesan - Kirim)' : '⚠️ GAP: SL Realisasi (Pesan - Realisasi)';
+      }
+
+      const thGapHeader = document.getElementById('thGapHeader');
+      if (thGapHeader) {
+        thGapHeader.textContent = isKirim ? 'Gap Unfulfilled (Pesan - Kirim)' : 'Gap Unfulfilled (Pesan - Realisasi)';
+      }
+
+      this.refreshDashboardData();
+    };
+
+    btnTrendKirim?.addEventListener('click', () => updateSLMode('sl_kirim'));
+    btnTrendRealisasi?.addEventListener('click', () => updateSLMode('sl_realisasi'));
+    btnParetoKirim?.addEventListener('click', () => updateSLMode('sl_kirim'));
+    btnParetoRealisasi?.addEventListener('click', () => updateSLMode('sl_realisasi'));
 
     // Metric Switcher Toggle
     const btnIDR = document.getElementById('btnMetricIDR');
@@ -165,7 +189,8 @@ class DashboardApp {
         brand_groups: [],
         items: [],
         reasons: [],
-        metric_type: this.activeFilters.metric_type || 'idr'
+        metric_type: this.activeFilters.metric_type || 'idr',
+        sl_type: 'sl_kirim'
       };
       this.treemapCrossFilter = null;
 
@@ -1488,6 +1513,13 @@ class DashboardApp {
     if (titleEl) titleEl.textContent = `Tabel Detail Analisis Berdasarkan ${dimLabel}`;
     if (thDimEl) thDimEl.textContent = dimLabel;
     if (badge) badge.textContent = `${records ? records.length : 0} Data Terfilter`;
+
+    const thGapHeader = document.getElementById('thGapHeader');
+    const isKirim = (this.activeFilters.sl_type || 'sl_kirim') === 'sl_kirim';
+    if (thGapHeader) {
+      thGapHeader.textContent = isKirim ? 'Gap Unfulfilled (Pesan - Kirim)' : 'Gap Unfulfilled (Pesan - Realisasi)';
+    }
+
     if (!tbody) return;
 
     if (!records || records.length === 0) {

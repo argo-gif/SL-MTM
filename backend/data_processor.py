@@ -364,12 +364,19 @@ class MTMDataProcessor:
         dim_col = dim_map.get(dimension.lower(), dimension)
 
         metric_type = filters.get('metric_type', metric_type)
+        sl_type = str(filters.get('sl_type', 'sl_kirim')).lower()
         is_unfulfill = unfulfill_only if 'unfulfill_only' in filters is False else filters.get('unfulfill_only', unfulfill_only)
 
-        if is_unfulfill:
-            val_col = "(CASE WHEN (idr_pesan - idr_kirim) > 0 THEN (idr_pesan - idr_kirim) ELSE idr_pesan END)" if metric_type == 'idr' else "(CASE WHEN (qty_order - qty_kirim) > 0 THEN (qty_order - qty_kirim) ELSE qty_order END)"
+        p_col = 'idr_pesan' if metric_type == 'idr' else 'qty_order'
+        if sl_type in ['sl_realisasi', 'sl_terima']:
+            target_col = 'idr_realisasi' if metric_type == 'idr' else 'qty_realisasi'
         else:
-            val_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
+            target_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
+
+        if is_unfulfill:
+            val_col = f"(CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE {p_col} END)"
+        else:
+            val_col = target_col
 
         where_sql, params = self._build_where_clause(filters)
 
@@ -416,9 +423,14 @@ class MTMDataProcessor:
         }
         dim_col = dim_map.get(dimension.lower(), 'reason_final')
 
+        metric_type = filters.get('metric_type', metric_type)
+        sl_type = str(filters.get('sl_type', 'sl_kirim')).lower()
+
         p_col = 'idr_pesan' if metric_type == 'idr' else 'qty_order'
         k_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
         r_col = 'idr_realisasi' if metric_type == 'idr' else 'qty_realisasi'
+
+        target_col = r_col if sl_type in ['sl_realisasi', 'sl_terima'] else k_col
 
         where_sql, params = self._build_where_clause(filters)
 
@@ -436,7 +448,7 @@ class MTMDataProcessor:
                 SUM({p_col}) as total_p,
                 SUM({k_col}) as total_k,
                 SUM({r_col}) as total_r,
-                SUM(CASE WHEN reason_final != 'On-Time / Sesuai' THEN (CASE WHEN ({p_col} - {k_col}) > 0 THEN ({p_col} - {k_col}) ELSE {p_col} END) ELSE 0 END) as gap_unfulfill
+                SUM(CASE WHEN reason_final != 'On-Time / Sesuai' THEN (CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE {p_col} END) ELSE 0 END) as gap_unfulfill
             FROM dataset {where_sql}
             GROUP BY {dim_col}
             ORDER BY gap_unfulfill DESC

@@ -334,7 +334,11 @@
           <span style="font-size: 1.2rem;">🗺️</span>
           <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700;">Analisis Unfulfill Tree Maps (Pareto Focus)</h2>
           <span class="card-target" id="crossFilterBadge">Klik kotak Treemap untuk Cross-Filter</span>
-          <span style="font-size: 0.75rem; font-weight: 700; color: #EF4444; background: rgba(220,38,38,0.18); border: 1px solid #F87171; padding: 0.25rem 0.65rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 0.3rem;">⚠️ Pareto Unfulfill Focus</span>
+          <span style="font-size: 0.75rem; font-weight: 700; color: #EF4444; background: rgba(220,38,38,0.18); border: 1px solid #F87171; padding: 0.25rem 0.65rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 0.3rem;" id="badgeParetoSLMode">⚠️ GAP: SL Kirim (Pesan - Kirim)</span>
+        </div>
+        <div class="switcher-toggle" style="width: auto;">
+          <button class="switcher-btn active" id="btnParetoSLKirim">SL Kirim</button>
+          <button class="switcher-btn" id="btnParetoSLRealisasi">SL Realisasi</button>
         </div>
       </div>
 
@@ -371,7 +375,7 @@
             <th>Total Order (Pesan)</th>
             <th>Total Kirim</th>
             <th>Total Realisasi</th>
-            <th>Gap Unfulfilled (Selisih)</th>
+            <th id="thGapHeader">Gap Unfulfilled (Selisih)</th>
             <th>SL Kirim (%)</th>
             <th>SL Realisasi (%)</th>
             <th>Status Pareto</th>

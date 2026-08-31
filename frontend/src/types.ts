@@ -38,7 +38,9 @@ export interface FilterOptions {
 }
 
 export interface ActiveFilters {
+  months?: string[];
   month: string;
+  mtm_types?: string[];
   mtm_type: string;
   branches: string[];
   mtm_aliases: string[];
@@ -46,6 +48,7 @@ export interface ActiveFilters {
   items: string[];
   reason?: string;
   metric_type: 'idr' | 'qty';
+  sl_type?: 'sl_kirim' | 'sl_realisasi' | string;
 }
 
 export interface GridRecord {

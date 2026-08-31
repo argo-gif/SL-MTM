@@ -32,3 +32,4 @@ test_generated_report.pptx
 *.xlsx
 !uploaded_active_dataset.xlsx
 ~$*
+scratch/
