@@ -240,8 +240,8 @@ class MTMDataProcessor:
                 SUM({p_col}) as total_p,
                 SUM({k_col}) as total_k,
                 SUM({r_col}) as total_r,
-                SUM(CASE WHEN reason_final = 'On-Time / Sesuai' THEN {k_col} ELSE 0 END) as ok_k,
-                SUM(CASE WHEN reason_final = 'On-Time / Sesuai' THEN {r_col} ELSE 0 END) as ok_r,
+                SUM(CASE WHEN (reason_kirim = '' OR reason_kirim IS NULL OR reason_kirim IN ('On-Time / Sesuai', 'Fulfill', 'ON-TIME / SESUAI', 'FULFILL')) THEN {k_col} ELSE 0 END) as ok_k,
+                SUM(CASE WHEN (reason_realisasi = '' OR reason_realisasi IS NULL OR reason_realisasi IN ('On-Time / Sesuai', 'Fulfill', 'ON-TIME / SESUAI', 'FULFILL')) THEN {r_col} ELSE 0 END) as ok_r,
                 COUNT(*) as cnt
             FROM dataset {where_sql};
         """
@@ -317,8 +317,8 @@ class MTMDataProcessor:
                 SUM({p_col}) as total_p,
                 SUM({k_col}) as total_k,
                 SUM({r_col}) as total_r,
-                SUM(CASE WHEN reason_final = 'On-Time / Sesuai' THEN {k_col} ELSE 0 END) as ok_k,
-                SUM(CASE WHEN reason_final = 'On-Time / Sesuai' THEN {r_col} ELSE 0 END) as ok_r
+                SUM(CASE WHEN (reason_kirim = '' OR reason_kirim IS NULL OR reason_kirim IN ('On-Time / Sesuai', 'Fulfill', 'ON-TIME / SESUAI', 'FULFILL')) THEN {k_col} ELSE 0 END) as ok_k,
+                SUM(CASE WHEN (reason_realisasi = '' OR reason_realisasi IS NULL OR reason_realisasi IN ('On-Time / Sesuai', 'Fulfill', 'ON-TIME / SESUAI', 'FULFILL')) THEN {r_col} ELSE 0 END) as ok_r
             FROM dataset {where_sql}
             GROUP BY month
             ORDER BY month;
@@ -448,7 +448,9 @@ class MTMDataProcessor:
                 SUM({p_col}) as total_p,
                 SUM({k_col}) as total_k,
                 SUM({r_col}) as total_r,
-                SUM(CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE 0 END) as gap_unfulfill
+                SUM(CASE WHEN ({p_col} - {target_col}) > 0 THEN ({p_col} - {target_col}) ELSE 0 END) as gap_unfulfill,
+                SUM(CASE WHEN (reason_kirim = '' OR reason_kirim IS NULL OR reason_kirim IN ('On-Time / Sesuai', 'Fulfill', 'ON-TIME / SESUAI', 'FULFILL')) THEN {k_col} ELSE 0 END) as ok_k,
+                SUM(CASE WHEN (reason_realisasi = '' OR reason_realisasi IS NULL OR reason_realisasi IN ('On-Time / Sesuai', 'Fulfill', 'ON-TIME / SESUAI', 'FULFILL')) THEN {r_col} ELSE 0 END) as ok_r
             FROM dataset {where_sql}
             GROUP BY {dim_col}
             ORDER BY gap_unfulfill DESC
@@ -471,9 +473,11 @@ class MTMDataProcessor:
             total_k = float(r[3] or 0)
             total_r = float(r[4] or 0)
             gap_unfulfill = float(r[5] or 0)
+            ok_k = float(r[6] or 0)
+            ok_r = float(r[7] or 0)
 
-            sl_k = (total_k / total_p * 100.0) if total_p > 0 else 0.0
-            sl_r = (total_r / total_p * 100.0) if total_p > 0 else 0.0
+            sl_k = (ok_k / total_p * 100.0) if total_p > 0 else 0.0
+            sl_r = (ok_r / total_p * 100.0) if total_p > 0 else 0.0
 
             pct = (gap_unfulfill / total_gap_all * 100.0) if total_gap_all > 0 else 0.0
             cum_pct += pct
