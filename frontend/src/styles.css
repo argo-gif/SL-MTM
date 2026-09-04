@@ -875,6 +875,17 @@ body {
   margin-right: 0.35rem;
 }
 
+.treemap-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  height: 530px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0b1120;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.6);
+}
+
 .tableau-treemap-flex-grid {
   display: flex;
   flex-wrap: wrap;

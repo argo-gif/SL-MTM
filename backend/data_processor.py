@@ -1,6 +1,7 @@
 import os
 import sys
 import sqlite3
+import re
 from typing import Dict, List, Any, Optional
 
 class MTMDataProcessor:
@@ -257,8 +258,8 @@ class MTMDataProcessor:
 
         total_p, total_k, total_r, ok_k, ok_r, cnt = row[0] or 0.0, row[1] or 0.0, row[2] or 0.0, row[3] or 0.0, row[4] or 0.0, row[5] or 0
 
-        sl_kirim = (ok_k / total_p * 100.0) if total_p > 0 else ((ok_k / total_k * 100.0) if total_k > 0 else 0.0)
-        sl_realisasi = (ok_r / total_p * 100.0) if total_p > 0 else ((ok_r / total_k * 100.0) if total_k > 0 else 0.0)
+        sl_kirim = (total_k / total_p * 100.0) if total_p > 0 else 0.0
+        sl_realisasi = (total_r / total_p * 100.0) if total_p > 0 else 0.0
         gap = round(sl_realisasi - sl_kirim, 2)
 
         gap_val_rk = round(total_r - total_k, 2)
@@ -337,8 +338,8 @@ class MTMDataProcessor:
             ok_k = r[4] or 0.0
             ok_r = r[5] or 0.0
 
-            sl_k = (ok_k / total_p * 100.0) if total_p > 0 else ((ok_k / total_k * 100.0) if total_k > 0 else 0.0)
-            sl_r = (ok_r / total_p * 100.0) if total_p > 0 else ((ok_r / total_k * 100.0) if total_k > 0 else 0.0)
+            sl_k = (total_k / total_p * 100.0) if total_p > 0 else 0.0
+            sl_r = (total_r / total_p * 100.0) if total_p > 0 else 0.0
             gap = round(sl_r - sl_k, 2)
 
             trend.append({
@@ -386,8 +387,11 @@ class MTMDataProcessor:
         conn = self.get_connection()
         cur = conn.cursor()
 
+        k_col = 'idr_kirim' if metric_type == 'idr' else 'qty_kirim'
+        r_col = 'idr_realisasi' if metric_type == 'idr' else 'qty_realisasi'
+
         sql = f"""
-            SELECT {dim_col}, SUM({val_col}) as val
+            SELECT {dim_col}, SUM({val_col}) as val, SUM({p_col}) as total_p, SUM({k_col}) as total_k, SUM({r_col}) as total_r
             FROM dataset {where_sql}
             GROUP BY {dim_col}
             ORDER BY val DESC;
@@ -402,15 +406,34 @@ class MTMDataProcessor:
 
         cum_sum = 0
         result = []
-        for name, val in rows:
-            v_float = float(val or 0)
-            pct = (v_float / total_val) * 100.0
+        for r in rows:
+            name = str(r[0] or '-')
+            val = float(r[1] or 0)
+            total_p = float(r[2] or 0)
+            total_k = float(r[3] or 0)
+            total_r = float(r[4] or 0)
+
+            pct = (val / total_val) * 100.0 if total_val > 0 else 0.0
             cum_sum += pct
+
+            sl_k = (total_k / total_p * 100.0) if total_p > 0 else 0.0
+            sl_r = (total_r / total_p * 100.0) if total_p > 0 else 0.0
+
+            sl_active = sl_r if sl_type in ['sl_realisasi', 'sl_terima'] else sl_k
+            sl_label = 'SL Terima' if sl_type in ['sl_realisasi', 'sl_terima'] else 'SL Kirim'
+
             result.append({
-                "name": str(name),
-                "value": round(v_float, 2),
+                "name": name,
+                "value": round(val, 2),
                 "percentage": round(pct, 2),
-                "cumulative_percentage": round(cum_sum, 2)
+                "cumulative_percentage": round(cum_sum, 2),
+                "total_pesan": round(total_p, 2),
+                "total_kirim": round(total_k, 2),
+                "total_realisasi": round(total_r, 2),
+                "sl_kirim": round(sl_k, 1),
+                "sl_realisasi": round(sl_r, 1),
+                "sl_active": round(sl_active, 1),
+                "sl_label": sl_label
             })
         return result
 
@@ -476,8 +499,8 @@ class MTMDataProcessor:
             ok_k = float(r[6] or 0)
             ok_r = float(r[7] or 0)
 
-            sl_k = (ok_k / total_p * 100.0) if total_p > 0 else 0.0
-            sl_r = (ok_r / total_p * 100.0) if total_p > 0 else 0.0
+            sl_k = (total_k / total_p * 100.0) if total_p > 0 else 0.0
+            sl_r = (total_r / total_p * 100.0) if total_p > 0 else 0.0
 
             pct = (gap_unfulfill / total_gap_all * 100.0) if total_gap_all > 0 else 0.0
             cum_pct += pct
@@ -497,6 +520,16 @@ class MTMDataProcessor:
                 "is_vital": cum_pct <= 80.0 or (len(records) == 0)
             })
 
+        if dimension.lower() in ['grup_brand', 'brand_group']:
+            def gb_sort_key(item: Any) -> tuple:
+                n = str(item.get('name', '')).strip().upper()
+                if 'ET' in n:
+                    return (999, n)
+                m = re.search(r'\d+', n)
+                if m:
+                    return (int(m.group()), n)
+                return (500, n)
+            records = sorted(records, key=gb_sort_key)
 
         return records
 

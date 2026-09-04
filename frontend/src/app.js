@@ -238,6 +238,13 @@ class DashboardApp {
       });
     });
 
+    // Window Resize Handler for Treemap Responsiveness
+    window.addEventListener('resize', () => {
+      if (this.lastParetoItems && this.lastParetoItems.length > 0) {
+        this.renderParetoTreeMaps(this.lastParetoItems);
+      }
+    });
+
 
 
     // PPT Export Options Modal Setup
@@ -1289,12 +1296,196 @@ class DashboardApp {
   }
 
 
+  squarifyLayout(items, width, height) {
+    const totalVal = items.reduce((s, it) => s + (it.value || 0), 0);
+    if (totalVal <= 0 || width <= 0 || height <= 0) return [];
+
+    const totalArea = width * height;
+    const children = items.map(it => ({
+      raw: it,
+      area: ((it.value || 0) / totalVal) * totalArea
+    }));
+
+    const rects = [];
+
+    const worstAspectRatio = (row, sideLen) => {
+      if (!row.length || sideLen <= 0) return Infinity;
+      const rowArea = row.reduce((s, c) => s + c.area, 0);
+      if (rowArea <= 0) return Infinity;
+      let maxA = 0;
+      let minA = Infinity;
+      for (let i = 0; i < row.length; i++) {
+        if (row[i].area > maxA) maxA = row[i].area;
+        if (row[i].area < minA) minA = row[i].area;
+      }
+      const s2 = sideLen * sideLen;
+      const a2 = rowArea * rowArea;
+      return Math.max((s2 * maxA) / a2, a2 / (s2 * minA));
+    };
+
+    const layoutRow = (row, container) => {
+      const rowArea = row.reduce((s, c) => s + c.area, 0);
+      const isHorizontal = container.w >= container.h;
+      const sideLen = isHorizontal ? container.h : container.w;
+      const rowThickness = sideLen > 0 ? rowArea / sideLen : 0;
+
+      let currentOffset = isHorizontal ? container.y : container.x;
+
+      row.forEach(c => {
+        const itemLen = rowThickness > 0 ? c.area / rowThickness : 0;
+        let rect;
+        if (isHorizontal) {
+          rect = {
+            item: c.raw,
+            x: container.x,
+            y: currentOffset,
+            w: rowThickness,
+            h: itemLen
+          };
+          currentOffset += itemLen;
+        } else {
+          rect = {
+            item: c.raw,
+            x: currentOffset,
+            y: container.y,
+            w: itemLen,
+            h: rowThickness
+          };
+          currentOffset += itemLen;
+        }
+        rects.push(rect);
+      });
+
+      if (isHorizontal) {
+        container.x += rowThickness;
+        container.w -= rowThickness;
+      } else {
+        container.y += rowThickness;
+        container.h -= rowThickness;
+      }
+    };
+
+    let container = { x: 0, y: 0, w: width, h: height };
+    let currentRow = [];
+
+    for (let i = 0; i < children.length; i++) {
+      const c = children[i];
+      const sideLen = Math.min(container.w, container.h);
+      if (sideLen <= 0) break;
+
+      if (currentRow.length === 0) {
+        currentRow.push(c);
+      } else {
+        const currentWorst = worstAspectRatio(currentRow, sideLen);
+        const newWorst = worstAspectRatio([...currentRow, c], sideLen);
+
+        if (newWorst <= currentWorst) {
+          currentRow.push(c);
+        } else {
+          layoutRow(currentRow, container);
+          currentRow = [c];
+        }
+      }
+    }
+
+    if (currentRow.length > 0 && container.w > 0 && container.h > 0) {
+      layoutRow(currentRow, container);
+    }
+
+    return rects;
+  }
+
+  getTreemapTileStyle(item, index, totalItems, vitalCutoff) {
+    const isVital = index <= vitalCutoff;
+
+    const mainPalettes = [
+      // 0: Deep Imperial Navy Blue (#1 Dominan)
+      { bg: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', text: '#ffffff', valText: '#fde047', subText: '#cbd5e1', border: '1.5px solid #60a5fa' },
+      // 1: Vibrant Royal Blue (#2)
+      { bg: 'linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)', text: '#ffffff', valText: '#ffffff', subText: '#e2e8f0', border: '1.5px solid #93c5fd' },
+      // 2: Warm Vibrant Orange (#3 - High Contrast Accent)
+      { bg: 'linear-gradient(135deg, #c2410c 0%, #ea580c 100%)', text: '#ffffff', valText: '#fde047', subText: '#ffedd5', border: '1.5px solid #fdba74' },
+      // 3: Ice Turquoise Blue (#4)
+      { bg: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', text: '#ffffff', valText: '#fde047', subText: '#e0f2fe', border: '1.5px solid #bae6fd' },
+      // 4: Golden Amber (#5)
+      { bg: 'linear-gradient(135deg, #b45309 0%, #d97706 100%)', text: '#ffffff', valText: '#ffffff', subText: '#fef3c7', border: '1.5px solid #fde047' },
+      // 5: Rich Indigo Violet (#6)
+      { bg: 'linear-gradient(135deg, #3730a3 0%, #4f46e5 100%)', text: '#ffffff', valText: '#fde047', subText: '#e0e7ff', border: '1.5px solid #a5b4fc' },
+      // 6: Emerald Teal (#7)
+      { bg: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)', text: '#ffffff', valText: '#99f6e4', subText: '#ccfbf1', border: '1.5px solid #5eead4' },
+      // 7: Crimson Coral (#8)
+      { bg: 'linear-gradient(135deg, #9f1239 0%, #e11d48 100%)', text: '#ffffff', valText: '#fecdd3', subText: '#ffe4e6', border: '1.5px solid #fda4af' },
+      // 8: Steel Slate (#9)
+      { bg: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)', text: '#ffffff', valText: '#fde047', subText: '#cbd5e1', border: '1.5px solid #94a3b8' }
+    ];
+
+    const minorPalettes = [
+      { bg: 'linear-gradient(135deg, #fdba74 0%, #fed7aa 100%)', text: '#7c2d12', valText: '#7c2d12', subText: 'rgba(124, 45, 18, 0.85)', border: '1.5px solid #ffffff' },
+      { bg: 'linear-gradient(135deg, #cbd5e1 0%, #e2e8f0 100%)', text: '#1e293b', valText: '#0f172a', subText: 'rgba(30, 41, 59, 0.85)', border: '1.5px solid #ffffff' },
+      { bg: 'linear-gradient(135deg, #a5f3fc 0%, #bae6fd 100%)', text: '#0369a1', valText: '#0369a1', subText: 'rgba(3, 105, 161, 0.85)', border: '1.5px solid #ffffff' },
+      { bg: 'linear-gradient(135deg, #ddd6fe 0%, #ede9fe 100%)', text: '#4c1d95', valText: '#4c1d95', subText: 'rgba(76, 29, 149, 0.85)', border: '1.5px solid #ffffff' },
+      { bg: 'linear-gradient(135deg, #fef08a 0%, #fef9c3 100%)', text: '#713f12', valText: '#713f12', subText: 'rgba(113, 63, 18, 0.85)', border: '1.5px solid #ffffff' }
+    ];
+
+    if (index < mainPalettes.length) {
+      return mainPalettes[index];
+    } else if (isVital) {
+      return mainPalettes[1 + ((index - mainPalettes.length) % (mainPalettes.length - 1))];
+    } else {
+      return minorPalettes[index % minorPalettes.length];
+    }
+  }
+
+  showTreemapTooltip(e, item, isVital, valStr) {
+    let tooltip = document.getElementById('treemapTooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'treemapTooltip';
+      tooltip.style.cssText = `
+        position: fixed;
+        display: none;
+        pointer-events: none;
+        z-index: 99999;
+        background: rgba(15, 23, 42, 0.96);
+        border: 1px solid rgba(245, 158, 11, 0.7);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+        color: #ffffff;
+        padding: 0.65rem 0.95rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        backdrop-filter: blur(12px);
+        transition: opacity 0.1s ease;
+      `;
+      document.body.appendChild(tooltip);
+    }
+
+    tooltip.style.display = 'block';
+    tooltip.style.left = Math.min(window.innerWidth - 250, e.clientX + 14) + 'px';
+    tooltip.style.top = Math.min(window.innerHeight - 150, e.clientY + 14) + 'px';
+    const slKirimVal = item.sl_kirim !== undefined ? item.sl_kirim.toFixed(1) + '%' : '-';
+    const slRealVal = item.sl_realisasi !== undefined ? item.sl_realisasi.toFixed(1) + '%' : '-';
+
+    tooltip.innerHTML = `
+      <div style="font-weight:800; font-size:0.88rem; color:#fde047; margin-bottom:0.3rem; border-bottom:1px solid rgba(255,255,255,0.15); padding-bottom:0.25rem;">${item.name}</div>
+      <div style="color:#e2e8f0; margin-bottom:0.15rem;">Nilai: <strong style="color:#ffffff;">${valStr}</strong></div>
+      <div style="color:#cbd5e1; margin-bottom:0.15rem;">Kontribusi: <strong style="color:#60a5fa;">${item.percentage.toFixed(1)}%</strong></div>
+      <div style="color:#cbd5e1; margin-bottom:0.15rem;">Kumulatif: <strong>${item.cumulative_percentage.toFixed(1)}%</strong></div>
+      <div style="color:#cbd5e1; margin-bottom:0.25rem;">SL Kirim: <strong style="color:#4ade80;">${slKirimVal}</strong> | SL Terima: <strong style="color:#fbbf24;">${slRealVal}</strong></div>
+      <div>${isVital ? '<span style="color:#fde047; font-weight:700; background:rgba(234,179,8,0.25); border:1px solid rgba(234,179,8,0.5); padding:0.1rem 0.4rem; border-radius:4px; font-size:0.72rem;">⭐ Pareto 80%</span>' : '<span style="color:#94a3b8; background:rgba(255,255,255,0.08); padding:0.1rem 0.4rem; border-radius:4px; font-size:0.72rem;">Minor (<20%)</span>'}</div>
+    `;
+  }
+
+  hideTreemapTooltip() {
+    const tooltip = document.getElementById('treemapTooltip');
+    if (tooltip) tooltip.style.display = 'none';
+  }
+
   renderParetoTreeMaps(items) {
     const container = document.getElementById('treemapGrid');
     if (!container) return;
 
-    // Filter out zero-value items so they don't clog the treemap canvas
     const nonZeroItems = (items || []).filter(it => it.value > 0);
+    this.lastParetoItems = nonZeroItems;
 
     if (!nonZeroItems || nonZeroItems.length === 0) {
       container.innerHTML = '<div style="color: var(--text-muted); padding: 1.5rem;">Tidak ada data Tree Maps untuk kombinasi filter ini.</div>';
@@ -1304,7 +1495,6 @@ class DashboardApp {
     container.innerHTML = '';
     const metricType = this.activeFilters.metric_type || 'idr';
 
-    // Find cutoff index where cumulative_percentage >= 80% (min 80% rule)
     let vitalIndexCutoff = 0;
     for (let i = 0; i < nonZeroItems.length; i++) {
       vitalIndexCutoff = i;
@@ -1313,111 +1503,131 @@ class DashboardApp {
       }
     }
 
-    const displayCount = Math.max(vitalIndexCutoff + 1, Math.min(nonZeroItems.length, 12));
-    const displayItems = nonZeroItems.slice(0, displayCount);
+    // Display items (up to top 60 items so even small tail items render at bottom right)
+    const displayItems = nonZeroItems.slice(0, 60);
 
     const execWrap = document.createElement('div');
     execWrap.className = 'tableau-executive-treemap';
 
-    // Tableau Style Legend Bar
-    const legendBar = document.createElement('div');
-    legendBar.className = 'tableau-legend-bar';
-    legendBar.innerHTML = `
-      <div style="font-size: 0.75rem; font-weight: 700; color: #FFFFFF; display:flex; align-items:center; gap:0.4rem;">
-        <span style="color: var(--konimex-gold);">📊</span> LEGENDA INTENSITAS PARETO:
-      </div>
-      <div class="tableau-legend-items">
-        <div><span class="tableau-legend-dot" style="background: #DC2626; box-shadow: 0 0 6px #F87171;"></span> ⭐ Top #1 (Dominan)</div>
-        <div><span class="tableau-legend-dot" style="background: #EA580C; box-shadow: 0 0 6px #FB923C;"></span> 🔥 Top #2-#3 (Dampak Tinggi)</div>
-        <div><span class="tableau-legend-dot" style="background: #D97706; box-shadow: 0 0 6px #FBBF24;"></span> 🟨 Pareto 80% (Dampak Menengah)</div>
-        <div><span class="tableau-legend-dot" style="background: #1D4ED8; box-shadow: 0 0 6px #60A5FA;"></span> 🟦 Minor (< 20%)</div>
-      </div>
-    `;
+    const canvasWrapper = document.createElement('div');
+    canvasWrapper.className = 'treemap-canvas-wrapper';
+    execWrap.appendChild(canvasWrapper);
+    container.appendChild(execWrap);
 
+    // Calculate squarify layout
+    const cWidth = canvasWrapper.clientWidth || 1000;
+    const cHeight = canvasWrapper.clientHeight || 530;
 
-    execWrap.appendChild(legendBar);
+    const rects = this.squarifyLayout(displayItems, cWidth, cHeight);
 
-    const flexGrid = document.createElement('div');
-    flexGrid.className = 'tableau-treemap-flex-grid';
-
-    displayItems.forEach((it, idx) => {
-      const tile = document.createElement('div');
+    rects.forEach((rect, idx) => {
+      const it = rect.item;
       const isVital = idx <= vitalIndexCutoff;
-
-      // Tableau Heatmap Gradient Class
-      let colorClass = 'tableau-color-slate';
-      if (idx === 0) colorClass = 'tableau-color-top';
-      else if (idx === 1 || idx === 2) colorClass = 'tableau-color-high';
-      else if (isVital) colorClass = 'tableau-color-medium';
-
-      tile.className = `tableau-tile ${colorClass}`;
-
-      // Dynamic proportional flex sizing so every single vital tile fits neatly
-      let flexBasis = '130px';
-      let minHeight = '85px';
-      let titleSize = '0.78rem';
-      let valSize = '0.92rem';
-
-      if (it.percentage >= 25.0) {
-        flexBasis = '320px';
-        minHeight = '145px';
-        titleSize = '1.05rem';
-        valSize = '1.4rem';
-      } else if (it.percentage >= 12.0) {
-        flexBasis = '250px';
-        minHeight = '125px';
-        titleSize = '0.95rem';
-        valSize = '1.2rem';
-      } else if (it.percentage >= 6.0) {
-        flexBasis = '190px';
-        minHeight = '105px';
-        titleSize = '0.88rem';
-        valSize = '1.05rem';
-      } else if (it.percentage >= 3.0) {
-        flexBasis = '145px';
-        minHeight = '90px';
-        titleSize = '0.8rem';
-        valSize = '0.92rem';
-      }
-
-      tile.style.flex = `1 1 ${flexBasis}`;
-      tile.style.minHeight = minHeight;
+      const style = this.getTreemapTileStyle(it, idx, displayItems.length, vitalIndexCutoff);
 
       const isSelected = (
         this.treemapCrossFilter &&
         this.treemapCrossFilter.dimension === this.activeParetoDimension &&
         this.treemapCrossFilter.name === it.name
       );
-      if (isSelected) tile.classList.add('selected');
 
       const valStr = this.formatMetricVal(it.value, metricType);
-      const badgeHtml = isVital
-        ? `<span style="font-size: 0.62rem; font-weight: 700; color: #FDE047; background: rgba(0,0,0,0.4); border: 1px solid rgba(234,179,8,0.5); padding: 0.12rem 0.4rem; border-radius: 4px; float: right;">⭐ Vital 80%</span>`
-        : ``;
+      const tile = document.createElement('div');
+      tile.className = 'tableau-tile' + (isSelected ? ' selected' : '');
 
-      tile.innerHTML = `
-        <div>
-          ${badgeHtml}
-          <div class="treemap-title" style="font-size: ${titleSize}; text-transform: uppercase; line-height: 1.2;">${it.name}</div>
-        </div>
-        <div style="margin-top: 0.35rem;">
-          <div class="treemap-val" style="font-size: ${valSize}; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">${valStr}</div>
-          <div style="font-size: 0.68rem; color: rgba(255,255,255,0.85); margin-top: 0.2rem;">
-            Kontribusi: <strong style="color: #FDE047;">${it.percentage.toFixed(1)}%</strong> <span style="opacity:0.8;">(Kumulatif: ${it.cumulative_percentage.toFixed(1)}%)</span>
-          </div>
-        </div>
+      tile.style.cssText = `
+        position: absolute;
+        left: ${rect.x.toFixed(1)}px;
+        top: ${rect.y.toFixed(1)}px;
+        width: ${rect.w.toFixed(1)}px;
+        height: ${rect.h.toFixed(1)}px;
+        background: ${style.bg};
+        color: ${style.text};
+        border: ${style.border};
+        box-sizing: border-box;
+        overflow: hidden;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: ${rect.w > 75 && rect.h > 55 ? '7px 9px' : '3px 5px'};
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        z-index: ${isSelected ? '25' : '1'};
       `;
+
+      let innerContent = '';
+      const slLabel = it.sl_label || ((this.activeFilters.sl_type || 'sl_kirim') === 'sl_kirim' ? 'SL Kirim' : 'SL Terima');
+      const slActiveVal = (it.sl_active !== undefined ? it.sl_active : ((this.activeFilters.sl_type || 'sl_kirim') === 'sl_kirim' ? it.sl_kirim : it.sl_realisasi));
+      const slColor = slLabel === 'SL Kirim' ? '#4ade80' : '#fbbf24';
+
+      if (rect.w >= 110 && rect.h >= 75) {
+        const badgeHtml = isVital
+          ? `<span style="font-size: 0.65rem; font-weight: 800; color: #fde047; background: rgba(0,0,0,0.6); border: 1.5px solid rgba(234,179,8,0.8); padding: 0.12rem 0.4rem; border-radius: 4px; float: right;">⭐ Pareto 80%</span>`
+          : ``;
+        const titleFontSize = isVital ? Math.min(17, Math.max(12, Math.floor(rect.w / 9.5))) : Math.min(15, Math.max(11, Math.floor(rect.w / 11)));
+        const valFontSize = isVital ? Math.min(19, Math.max(14, Math.floor(rect.w / 7.5))) : Math.min(17, Math.max(12, Math.floor(rect.w / 9)));
+        const subFontSize = isVital ? '10.5px' : '10px';
+
+        innerContent = `
+          <div>
+            ${badgeHtml}
+            <div style="font-size: ${titleFontSize}px; font-weight: 800; text-transform: uppercase; line-height: 1.2; word-break: break-word; color: ${style.text};">${it.name}</div>
+          </div>
+          <div style="margin-top: 0.2rem;">
+            <div style="font-size: ${valFontSize}px; font-weight: 800; color: ${style.valText}; text-shadow: 0 1px 4px rgba(0,0,0,0.4);">${valStr}</div>
+            <div style="font-size: ${subFontSize}; color: ${style.subText}; margin-top: 0.15rem; line-height: 1.3;">
+              <div>Kontribusi: <strong>${it.percentage.toFixed(1)}%</strong> <span style="opacity:0.85;">(Kum: ${it.cumulative_percentage.toFixed(1)}%)</span></div>
+              ${slActiveVal !== undefined ? `<div style="font-weight: 700; color: ${slColor}; margin-top: 1px;">${slLabel}: ${slActiveVal.toFixed(1)}%</div>` : ''}
+            </div>
+          </div>
+        `;
+      } else if (rect.w >= 70 && rect.h >= 45) {
+        const titleFontSize = isVital ? Math.min(13, Math.max(10, Math.floor(rect.w / 7.5))) : Math.min(12, Math.max(9.5, Math.floor(rect.w / 8)));
+        const valFontSize = isVital ? Math.min(14, Math.max(11, Math.floor(rect.w / 6.5))) : Math.min(13, Math.max(10, Math.floor(rect.w / 7)));
+
+        innerContent = `
+          <div>
+            <div style="font-size: ${titleFontSize}px; font-weight: 800; text-transform: uppercase; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${style.text};">${it.name}</div>
+          </div>
+          <div>
+            <div style="font-size: ${valFontSize}px; font-weight: 800; color: ${style.valText};">${valStr}</div>
+            <div style="font-size: 9.5px; color: ${style.subText}; margin-top: 1px;">
+              ${it.percentage.toFixed(1)}% ${slActiveVal !== undefined ? `| <strong style="color:${slColor};">${slLabel}: ${slActiveVal.toFixed(1)}%</strong>` : ''}
+            </div>
+          </div>
+        `;
+      } else if (rect.w >= 45 && rect.h >= 28) {
+        const shortName = it.name.length > 10 ? it.name.substring(0, 8) + '..' : it.name;
+        innerContent = `
+          <div style="font-size: ${Math.min(10.5, Math.max(8.5, Math.floor(rect.w / 6.5)))}px; font-weight: 700; text-transform: uppercase; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${style.text};">${shortName}</div>
+          <div style="font-size: 8.5px; font-weight: 700; color: ${style.valText}; opacity: 0.9;">${it.percentage.toFixed(1)}%</div>
+        `;
+      } else {
+        innerContent = '';
+      }
+
+      tile.innerHTML = innerContent;
+
+      tile.addEventListener('mousemove', (e) => {
+        this.showTreemapTooltip(e, it, isVital, valStr);
+        tile.style.transform = 'scale(1.02)';
+        tile.style.zIndex = '40';
+        tile.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+      });
+      tile.addEventListener('mouseleave', () => {
+        this.hideTreemapTooltip();
+        tile.style.transform = 'none';
+        tile.style.zIndex = isSelected ? '25' : '1';
+        tile.style.boxShadow = 'none';
+      });
 
       tile.addEventListener('click', (e) => {
         e.stopPropagation();
         this.handleTreemapClick(it.name);
       });
 
-      flexGrid.appendChild(tile);
+      canvasWrapper.appendChild(tile);
     });
-
-    execWrap.appendChild(flexGrid);
-    container.appendChild(execWrap);
 
     this.updateCrossFilterBadge();
   }

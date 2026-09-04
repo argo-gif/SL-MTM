@@ -2,6 +2,7 @@ import os
 import sys
 import copy
 import zipfile
+import re
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Any, Optional
 
@@ -13,7 +14,7 @@ try:
     from pptx.enum.text import PP_ALIGN
     from pptx.enum.shapes import MSO_SHAPE
     from pptx.chart.data import CategoryChartData
-    from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+    from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_DATA_LABEL_POSITION
     HAS_PYTHON_PPTX = True
 except ImportError:
     HAS_PYTHON_PPTX = False
@@ -45,6 +46,377 @@ class MTMPPTExporter:
             return self._generate_with_python_pptx(export_data, output_path)
         else:
             return self._generate_fallback(export_data, output_path)
+
+def squarify_layout(items: List[Dict[str, Any]], width: float, height: float) -> List[Dict[str, Any]]:
+    non_zero = [it for it in items if float(it.get("value", 0)) > 0]
+    total_val = sum(float(it.get("value", 0)) for it in non_zero)
+    if total_val <= 0 or width <= 0 or height <= 0:
+        return []
+
+    total_area = float(width * height)
+    children = []
+    for it in non_zero:
+        v = float(it.get("value", 0))
+        children.append({
+            "raw": it,
+            "area": (v / total_val) * total_area
+        })
+
+    rects = []
+
+    def worst_aspect_ratio(row, side_len):
+        if not row or side_len <= 0:
+            return float('inf')
+        row_area = sum(c["area"] for c in row)
+        if row_area <= 0:
+            return float('inf')
+        max_a = max(c["area"] for c in row)
+        min_a = min(c["area"] for c in row)
+        s2 = float(side_len * side_len)
+        a2 = float(row_area * row_area)
+        return max((s2 * max_a) / a2, a2 / (s2 * min_a))
+
+    def layout_row(row, container):
+        row_area = sum(c["area"] for c in row)
+        is_horizontal = container["w"] >= container["h"]
+        side_len = container["h"] if is_horizontal else container["w"]
+        row_thickness = row_area / side_len if side_len > 0 else 0
+
+        current_offset = container["y"] if is_horizontal else container["x"]
+
+        for c in row:
+            item_len = c["area"] / row_thickness if row_thickness > 0 else 0
+            if is_horizontal:
+                rects.append({
+                    "item": c["raw"],
+                    "x": container["x"],
+                    "y": current_offset,
+                    "w": row_thickness,
+                    "h": item_len
+                })
+                current_offset += item_len
+            else:
+                rects.append({
+                    "item": c["raw"],
+                    "x": current_offset,
+                    "y": container["y"],
+                    "w": item_len,
+                    "h": row_thickness
+                })
+                current_offset += item_len
+
+        if is_horizontal:
+            container["x"] += row_thickness
+            container["w"] -= row_thickness
+        else:
+            container["y"] += row_thickness
+            container["h"] -= row_thickness
+
+    container = {"x": 0.0, "y": 0.0, "w": float(width), "h": float(height)}
+    current_row = []
+
+    for c in children:
+        side_len = min(container["w"], container["h"])
+        if side_len <= 0:
+            break
+
+        if not current_row:
+            current_row.append(c)
+        else:
+            current_worst = worst_aspect_ratio(current_row, side_len)
+            new_worst = worst_aspect_ratio(current_row + [c], side_len)
+
+            if new_worst <= current_worst:
+                current_row.append(c)
+            else:
+                layout_row(current_row, container)
+                current_row = [c]
+
+    if current_row and container["w"] > 0 and container["h"] > 0:
+        layout_row(current_row, container)
+
+    return rects
+
+def wrap_text_lines(font, text: str, max_w: float) -> List[str]:
+    words = text.split()
+    if not words:
+        return []
+
+    lines = []
+    curr_words = []
+
+    def get_w(t):
+        if hasattr(font, 'getlength'):
+            return font.getlength(t)
+        elif hasattr(font, 'getbbox'):
+            return font.getbbox(t)[2]
+        return len(t) * 8
+
+    for word in words:
+        test_str = " ".join(curr_words + [word]) if curr_words else word
+        if get_w(test_str) <= max_w or not curr_words:
+            curr_words.append(word)
+        else:
+            lines.append(" ".join(curr_words))
+            curr_words = [word]
+
+    if curr_words:
+        lines.append(" ".join(curr_words))
+
+    return lines
+
+def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, height_px: int = 780, vital_cutoff_idx: int = 0) -> str:
+    from PIL import Image, ImageDraw, ImageFont
+    import math
+
+    non_zero = [it for it in items if float(it.get("value", 0)) > 0]
+    display_items = non_zero[:40]
+
+    rects = squarify_layout(display_items, float(width_px), float(height_px))
+
+    canvas = Image.new('RGB', (width_px, height_px), color=(15, 23, 42))
+
+    font_bold_path = 'C:/Windows/Fonts/segoeuib.ttf' if os.path.exists('C:/Windows/Fonts/segoeuib.ttf') else 'C:/Windows/Fonts/arialbd.ttf'
+    font_reg_path = 'C:/Windows/Fonts/segoeui.ttf' if os.path.exists('C:/Windows/Fonts/segoeui.ttf') else 'C:/Windows/Fonts/arial.ttf'
+
+    def get_font(path, size):
+        try:
+            return ImageFont.truetype(path, int(size))
+        except Exception:
+            return ImageFont.load_default()
+
+    main_styles = [
+        {"bg_start": (15, 23, 42), "bg_end": (30, 58, 138), "border": (96, 165, 250), "val_color": (253, 224, 71)},   # Navy
+        {"bg_start": (29, 78, 216), "bg_end": (59, 130, 246), "border": (147, 197, 253), "val_color": (255, 255, 255)}, # Royal Blue
+        {"bg_start": (194, 65, 12), "bg_end": (234, 88, 12), "border": (253, 186, 116), "val_color": (253, 224, 71)},  # Orange
+        {"bg_start": (2, 132, 199), "bg_end": (56, 189, 248), "border": (186, 230, 253), "val_color": (253, 224, 71)},  # Ice Blue
+        {"bg_start": (180, 83, 9), "bg_end": (217, 119, 6), "border": (253, 224, 71), "val_color": (255, 255, 255)},   # Amber
+        {"bg_start": (55, 48, 163), "bg_end": (79, 70, 229), "border": (165, 180, 252), "val_color": (253, 224, 71)},  # Indigo
+        {"bg_start": (15, 118, 110), "bg_end": (13, 148, 136), "border": (94, 234, 212), "val_color": (153, 246, 228)}, # Teal
+        {"bg_start": (159, 18, 57), "bg_end": (225, 29, 72), "border": (253, 164, 175), "val_color": (254, 205, 211)}, # Crimson
+        {"bg_start": (30, 41, 59), "bg_end": (71, 85, 105), "border": (148, 163, 184), "val_color": (253, 224, 71)}     # Slate
+    ]
+
+    minor_styles = [
+        {"bg_start": (253, 186, 116), "bg_end": (254, 215, 170), "border": (255, 255, 255), "val_color": (124, 45, 18), "text": (124, 45, 18), "sub": (124, 45, 18)},
+        {"bg_start": (203, 213, 225), "bg_end": (226, 232, 240), "border": (255, 255, 255), "val_color": (15, 23, 42), "text": (30, 41, 59), "sub": (30, 41, 59)},
+        {"bg_start": (165, 243, 252), "bg_end": (186, 230, 253), "border": (255, 255, 255), "val_color": (3, 105, 161), "text": (3, 105, 161), "sub": (3, 105, 161)},
+        {"bg_start": (221, 214, 254), "bg_end": (237, 233, 254), "border": (255, 255, 255), "val_color": (76, 29, 149), "text": (76, 29, 149), "sub": (76, 29, 149)}
+    ]
+
+    def draw_gradient(img, start_color, end_color):
+        w, h = img.size
+        dr = ImageDraw.Draw(img)
+        for i in range(h):
+            ratio = i / float(h)
+            r = int(start_color[0] * (1 - ratio) + end_color[0] * ratio)
+            g = int(start_color[1] * (1 - ratio) + end_color[1] * ratio)
+            b = int(start_color[2] * (1 - ratio) + end_color[2] * ratio)
+            dr.line([(0, i), (w, i)], fill=(r, g, b))
+
+    for idx, rect in enumerate(rects):
+        item = rect["item"]
+        rx, ry, rw, rh = int(round(rect["x"])), int(round(rect["y"])), int(round(rect["w"])), int(round(rect["h"]))
+        if rw <= 2 or rh <= 2:
+            continue
+
+        is_vital = idx <= vital_cutoff_idx
+
+        if idx < len(main_styles):
+            st = main_styles[idx]
+        elif is_vital:
+            st = main_styles[1 + ((idx - len(main_styles)) % (len(main_styles) - 1))]
+        else:
+            st = minor_styles[idx % len(minor_styles)]
+
+        tile_img = Image.new('RGB', (rw, rh), color=st["bg_start"])
+        draw_gradient(tile_img, st["bg_start"], st["bg_end"])
+        t_draw = ImageDraw.Draw(tile_img)
+
+        # Border
+        t_draw.rectangle([0, 0, rw - 1, rh - 1], outline=st["border"], width=2)
+
+        val = float(item.get("value", 0))
+        pct = float(item.get("percentage", 0))
+        cum_pct = float(item.get("cumulative_percentage", 0))
+
+        if val >= 1_000_000_000:
+            val_str = f"Rp {val/1_000_000_000:.2f} Miliar"
+        elif val >= 1_000_000:
+            val_str = f"Rp {val/1_000_000:.2f} Juta"
+        elif val >= 1_000:
+            val_str = f"Rp {val:,.0f}"
+        else:
+            val_str = f"{val:.0f}"
+
+        name_str = str(item.get("name", "-")).upper()
+
+        pad = 8 if rw > 80 and rh > 60 else 4
+        avail_w = rw - pad * 2
+        avail_h = rh - pad * 2
+
+        if avail_w <= 20 or avail_h <= 15:
+            canvas.paste(tile_img, (rx, ry))
+            continue
+
+        text_color = st.get("text", (255, 255, 255))
+        val_color = st.get("val_color", (253, 224, 71))
+        sub_color = st.get("sub", (203, 213, 225))
+
+        # Check Pareto badge availability
+        has_badge = is_vital and avail_w >= 100 and avail_h >= 65
+        badge_w, badge_h = 0, 0
+        f_badge = get_font(font_bold_path, 10)
+
+        if has_badge:
+            badge_text = "Pareto 80%"
+            if hasattr(f_badge, 'getlength'):
+                bw = int(f_badge.getlength(badge_text))
+            elif hasattr(f_badge, 'getbbox'):
+                bw = f_badge.getbbox(badge_text)[2]
+            else:
+                bw = len(badge_text) * 7
+            badge_w = bw + 22
+            badge_h = 18
+
+            bx = rw - pad - badge_w
+            by = pad
+            # Draw badge box
+            t_draw.rectangle([bx, by, bx + badge_w, by + badge_h], fill=(0, 0, 0), outline=(234, 179, 8), width=1)
+
+            # Draw star polygon
+            star_cx = bx + 10
+            star_cy = by + 9
+            star_pts = []
+            for sp in range(10):
+                sr = 4.5 if sp % 2 == 0 else 2.0
+                s_angle = sp * math.pi / 5 - math.pi / 2
+                star_pts.append((star_cx + sr * math.cos(s_angle), star_cy + sr * math.sin(s_angle)))
+            t_draw.polygon(star_pts, fill=(253, 224, 71))
+
+            t_draw.text((bx + 18, by + 2), badge_text, fill=(253, 224, 71), font=f_badge)
+
+        sl_lbl = item.get("sl_label", "SL Kirim")
+        sl_val = item.get("sl_active", item.get("sl_kirim", None))
+
+        # Tile text rendering with Multi-line Word Wrapping (NO TRUNCATION OR CLIPPING!)
+        if avail_w >= 110 and avail_h >= 75:
+            if is_vital:
+                init_title_size = max(13, min(22, avail_w // 8))
+                val_size = max(16, min(26, avail_w // 7))
+                sub_size = max(10, min(13, avail_w // 13))
+            else:
+                init_title_size = max(11, min(16, avail_w // 11))
+                val_size = max(13, min(20, avail_w // 9))
+                sub_size = max(9, min(11, avail_w // 16))
+
+            f_val = get_font(font_bold_path, val_size)
+            f_sub = get_font(font_bold_path if is_vital else font_reg_path, sub_size)
+
+            lines = []
+            f_title = None
+            title_size = init_title_size
+
+            while title_size >= 9.5:
+                f_title = get_font(font_bold_path, title_size)
+                wrap_w = avail_w - (badge_w + 6 if has_badge else 0)
+                lines = wrap_text_lines(f_title, name_str, wrap_w)
+
+                line_h = int(title_size * 1.25)
+                tot_title_h = len(lines) * line_h
+                tot_h = tot_title_h + val_size + (sub_size * 2) + 16
+
+                if tot_h <= avail_h or title_size <= 9.5:
+                    break
+                title_size -= 1.0
+
+            y_curr = pad
+            line_h = int(title_size * 1.25)
+            for line in lines:
+                if y_curr + line_h > rh - pad - val_size - 4:
+                    break
+                t_draw.text((pad, y_curr), line, fill=text_color, font=f_title)
+                y_curr += line_h
+
+            y_curr += 4
+            t_draw.text((pad, y_curr), val_str, fill=val_color, font=f_val)
+            y_curr += int(val_size * 1.2) + 2
+
+            # Render Subtext lines on separate lines (NO HORIZONTAL CLIPPING!)
+            if y_curr + sub_size <= rh - pad:
+                sub_txt1 = f"Kontribusi: {pct:.1f}% (Kum: {cum_pct:.1f}%)"
+                t_draw.text((pad, y_curr), sub_txt1, fill=sub_color, font=f_sub)
+                y_curr += sub_size + 2
+
+            if sl_val is not None and y_curr + sub_size <= rh - pad:
+                sub_txt2 = f"{sl_lbl}: {float(sl_val):.1f}%"
+                sl_color = (74, 222, 128) if sl_lbl == 'SL Kirim' else (251, 191, 36)
+                t_draw.text((pad, y_curr), sub_txt2, fill=sl_color, font=f_sub)
+
+        elif avail_w >= 65 and avail_h >= 45:
+            if is_vital:
+                init_title_size = max(11, min(15, avail_w // 8))
+                val_size = max(12, min(16, avail_w // 7))
+                sub_size = 10
+            else:
+                init_title_size = max(9.5, min(13, avail_w // 9))
+                val_size = max(11, min(14, avail_w // 8))
+                sub_size = 9
+
+            f_val = get_font(font_bold_path, val_size)
+            f_sub = get_font(font_bold_path if is_vital else font_reg_path, sub_size)
+
+            title_size = init_title_size
+            lines = []
+            while title_size >= 8.5:
+                f_title = get_font(font_bold_path, title_size)
+                lines = wrap_text_lines(f_title, name_str, avail_w)
+                tot_h = (len(lines) * int(title_size * 1.2)) + val_size + sub_size + 8
+                if tot_h <= avail_h or title_size <= 8.5:
+                    break
+                title_size -= 0.5
+
+            y_curr = pad
+            line_h = int(title_size * 1.2)
+            for line in lines:
+                if y_curr + line_h > rh - pad - val_size:
+                    break
+                t_draw.text((pad, y_curr), line, fill=text_color, font=f_title)
+                y_curr += line_h
+
+            y_curr += 2
+            t_draw.text((pad, y_curr), val_str, fill=val_color, font=f_val)
+            y_curr += val_size + 2
+
+            if sl_val is not None and y_curr + sub_size <= rh - pad:
+                sl_color = (74, 222, 128) if sl_lbl == 'SL Kirim' else (251, 191, 36)
+                t_draw.text((pad, y_curr), f"{pct:.1f}% | {sl_lbl}: {float(sl_val):.1f}%", fill=sl_color, font=f_sub)
+
+        elif avail_w >= 40 and avail_h >= 25:
+            title_size = max(8.5, min(10, avail_w // 7))
+            f_title = get_font(font_bold_path, title_size)
+            f_sub = get_font(font_reg_path, 8)
+
+            lines = wrap_text_lines(f_title, name_str, avail_w)
+            y_curr = pad
+            line_h = int(title_size * 1.15)
+
+            for line in lines:
+                if y_curr + line_h > rh - pad - 10:
+                    break
+                t_draw.text((pad, y_curr), line, fill=text_color, font=f_title)
+                y_curr += line_h
+
+            if y_curr + 10 <= rh - pad:
+                t_draw.text((pad, y_curr), f"{pct:.1f}%", fill=val_color, font=f_sub)
+
+        canvas.paste(tile_img, (rx, ry))
+
+    import tempfile
+    fd, temp_path = tempfile.mkstemp(suffix=".png", prefix="treemap_img_")
+    os.close(fd)
+    canvas.save(temp_path, "PNG", quality=95)
+    return temp_path
 
     def _generate_with_python_pptx(self, export_data: Dict[str, Any], output_path: str) -> str:
         prs = Presentation(self.template_path)
@@ -400,19 +772,32 @@ class MTMPPTExporter:
 
                 plot = chart.plots[0]
                 plot.has_data_labels = True
-                data_labels = plot.data_labels
-                data_labels.font.size = Pt(7.5)
-                data_labels.font.bold = True
+                plot.gap_width = 55
+                plot.overlap = -10
 
-                # Format Value & Category Axes cleanly
+                data_labels = plot.data_labels
+                data_labels.font.size = Pt(7.0)
+                data_labels.font.bold = True
+                data_labels.font.color.rgb = RGBColor(15, 23, 42)
+                data_labels.number_format = '0.0"%"'
+                data_labels.position = XL_DATA_LABEL_POSITION.OUTSIDE_END
+
+                # Format Value & Category Axes cleanly (No gridlines, elegant borderless layout)
                 val_axis = chart.value_axis
-                val_axis.maximum_scale = 100
+                val_axis.maximum_scale = 115
                 val_axis.minimum_scale = 0
                 val_axis.major_unit = 20
+                val_axis.has_major_gridlines = False
+                val_axis.has_minor_gridlines = False
                 val_axis.tick_labels.font.size = Pt(8)
+                val_axis.tick_labels.font.color.rgb = RGBColor(100, 116, 139)
 
                 cat_axis = chart.category_axis
-                cat_axis.tick_labels.font.size = Pt(8)
+                cat_axis.has_major_gridlines = False
+                cat_axis.has_minor_gridlines = False
+                cat_axis.tick_labels.font.size = Pt(8.5)
+                cat_axis.tick_labels.font.bold = True
+                cat_axis.tick_labels.font.color.rgb = RGBColor(30, 41, 59)
 
                 # Style Series Fills (High Contrast Color Distinction)
                 # Series 0: SL Kirim (Konimex Primary Red)
@@ -428,10 +813,22 @@ class MTMPPTExporter:
                     series1.format.fill.fore_color.rgb = RGBColor(37, 99, 235)
 
             # Slide 1.1: Service Level Per Grup Brand (Executive KPI Breakdown per Grup Brand)
+            def gb_sort_key(item: Any) -> tuple:
+                name = str(item.get('name', '') if isinstance(item, dict) else item).strip().upper()
+                if 'ET' in name:
+                    return (999, name)
+                m = re.search(r'\d+', name)
+                if m:
+                    return (int(m.group()), name)
+                return (500, name)
+
             grid_by_dim = report.get("grid_by_dim", {})
             gb_grid = grid_by_dim.get("grup_brand", [])
             if not gb_grid and report.get("grid"):
                 gb_grid = report.get("grid", [])
+
+            if gb_grid:
+                gb_grid = sorted(gb_grid, key=gb_sort_key)
 
             if gb_grid and is_all_grup_brand_selected(filters):
                 slide_gb = get_or_create_content_slide()
@@ -457,7 +854,7 @@ class MTMPPTExporter:
                 chart_data_gb.add_series('SL Kirim (%)', [round(float(r.get('sl_kirim', 0)), 1) for r in gb_grid])
                 chart_data_gb.add_series('SL Realisasi (%)', [round(float(r.get('sl_realisasi', 0)), 1) for r in gb_grid])
 
-                cx_gb, cy_gb = Inches(4.50), Inches(3.55)
+                cx_gb, cy_gb = Inches(4.60), Inches(3.55)
                 chart_shape_gb = slide_gb.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(0.55), Inches(1.15), cx_gb, cy_gb, chart_data_gb)
                 chart_gb = chart_shape_gb.chart
 
@@ -468,18 +865,31 @@ class MTMPPTExporter:
 
                 plot_gb = chart_gb.plots[0]
                 plot_gb.has_data_labels = True
+                plot_gb.gap_width = 55
+                plot_gb.overlap = -10
+
                 data_labels_gb = plot_gb.data_labels
-                data_labels_gb.font.size = Pt(7.0)
+                data_labels_gb.font.size = Pt(6.5)
                 data_labels_gb.font.bold = True
+                data_labels_gb.font.color.rgb = RGBColor(15, 23, 42)
+                data_labels_gb.number_format = '0.0"%"'
+                data_labels_gb.position = XL_DATA_LABEL_POSITION.OUTSIDE_END
 
                 val_axis_gb = chart_gb.value_axis
-                val_axis_gb.maximum_scale = 100
+                val_axis_gb.maximum_scale = 115
                 val_axis_gb.minimum_scale = 0
                 val_axis_gb.major_unit = 20
+                val_axis_gb.has_major_gridlines = False
+                val_axis_gb.has_minor_gridlines = False
                 val_axis_gb.tick_labels.font.size = Pt(7.5)
+                val_axis_gb.tick_labels.font.color.rgb = RGBColor(100, 116, 139)
 
                 cat_axis_gb = chart_gb.category_axis
+                cat_axis_gb.has_major_gridlines = False
+                cat_axis_gb.has_minor_gridlines = False
                 cat_axis_gb.tick_labels.font.size = Pt(7.5)
+                cat_axis_gb.tick_labels.font.bold = True
+                cat_axis_gb.tick_labels.font.color.rgb = RGBColor(30, 41, 59)
 
                 if len(chart_gb.series) > 0:
                     chart_gb.series[0].format.fill.solid()
@@ -584,121 +994,36 @@ class MTMPPTExporter:
                             vital_items.append(item)
                     vital_names = set([v.get("name") for v in vital_items if v.get("name")])
 
-                    CHUNK_SIZE = 20
-                    pareto_chunks = [vital_items[i:i + CHUNK_SIZE] for i in range(0, len(vital_items), CHUNK_SIZE)]
-                    total_p_chunks = len(pareto_chunks)
+                    # SLIDE A: PARETO TREEMAP SLIDE FOR THIS DIMENSION (Matching 2D Dashboard Treemap Layout)
+                    slide_p = get_or_create_content_slide()
 
-                    # SLIDE A: PARETO TREEMAP SLIDE(S) FOR THIS DIMENSION
-                    for chunk_idx, chunk_items in enumerate(pareto_chunks):
-                        slide_p = get_or_create_content_slide()
+                    title_box_p = slide_p.shapes.add_textbox(Inches(0.45), Inches(0.40), Inches(7.5), Inches(0.65))
+                    tf_p = title_box_p.text_frame
+                    tf_p.word_wrap = True
+                    p_p = tf_p.paragraphs[0]
+                    p_p.text = f"{section_idx}.1 ANALISIS PARETO UNFULLFILL - {dim_label} ({month_label})"
+                    p_p.font.size = Pt(16)
+                    p_p.font.bold = True
+                    p_p.font.color.rgb = RGBColor(192, 0, 0)
 
-                        title_box_p = slide_p.shapes.add_textbox(Inches(0.55), Inches(0.45), Inches(6.5), Inches(0.60))
-                        tf_p = title_box_p.text_frame
-                        tf_p.word_wrap = True
-                        p_p = tf_p.paragraphs[0]
-                        part_suffix = f" (BAGIAN {chunk_idx+1}/{total_p_chunks})" if total_p_chunks > 1 else ""
-                        p_p.text = f"{section_idx}.1 ANALISIS PARETO UNFULLFILL - {dim_label}{part_suffix} ({month_label})"
-                        p_p.font.size = Pt(15 if total_p_chunks > 1 else 16)
-                        p_p.font.bold = True
-                        p_p.font.color.rgb = RGBColor(192, 0, 0)
+                    p_sub_p = tf_p.add_paragraph()
+                    p_sub_p.text = f"{filter_info} | Pareto 80% (1 - {len(vital_items)} dari {len(vital_items)} {unit_name})"
+                    p_sub_p.font.size = Pt(8.5)
+                    p_sub_p.font.bold = True
+                    p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
 
-                        p_sub_p = tf_p.add_paragraph()
-                        start_num = chunk_idx * CHUNK_SIZE + 1
-                        end_num = start_num + len(chunk_items) - 1
-                        range_str = f"#{start_num} - #{end_num}" if total_p_chunks > 1 else f"1 - {len(vital_items)}"
-                        p_sub_p.text = f"{filter_info} | Pareto 80% ({range_str} dari {len(vital_items)} {unit_name})"
-                        p_sub_p.font.size = Pt(8.5)
-                        p_sub_p.font.bold = True
-                        p_sub_p.font.color.rgb = RGBColor(100, 100, 100)
+                    # Generate High-Resolution 2D Treemap Snapshot Image (Matching Dashboard 100%)
+                    vital_cutoff_idx = len(vital_items) - 1
+                    img_path = generate_treemap_image(pareto_items, width_px=1800, height_px=780, vital_cutoff_idx=vital_cutoff_idx)
 
-                        n_chunk = len(chunk_items)
-                        if n_chunk <= 3:
-                            cols_cnt = n_chunk
-                            tile_w = Inches(8.60 / cols_cnt)
-                            tile_h = Inches(2.20)
-                        elif n_chunk <= 6:
-                            cols_cnt = 3
-                            tile_w = Inches(2.78)
-                            tile_h = Inches(1.38)
-                        elif n_chunk <= 12:
-                            cols_cnt = 4
-                            tile_w = Inches(2.05)
-                            tile_h = Inches(0.95)
-                        else:
-                            cols_cnt = 5
-                            tile_w = Inches(1.62)
-                            tile_h = Inches(0.72)
+                    # Insert Pixel-Perfect Treemap Screenshot Image onto PowerPoint Slide
+                    slide_p.shapes.add_picture(img_path, Inches(0.45), Inches(1.10), Inches(8.95), Inches(3.85))
 
-                        start_x = Inches(0.55)
-                        start_y = Inches(1.15)
-                        gap_x = Inches(0.12)
-                        gap_y = Inches(0.12)
-
-                        for i, item in enumerate(chunk_items):
-                            row_idx = i // cols_cnt
-                            col_idx = i % cols_cnt
-
-                            left = start_x + col_idx * (tile_w + gap_x)
-                            top = start_y + row_idx * (tile_h + gap_y)
-
-                            shape = slide_p.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, tile_w, tile_h)
-                            shape.fill.solid()
-
-                            pct = float(item.get("percentage", 0))
-                            cum_pct = float(item.get("cumulative_percentage", 0))
-                            val = float(item.get("value", 0))
-
-                            if pct >= 20.0:
-                                shape.fill.fore_color.rgb = RGBColor(185, 28, 28)
-                            elif pct >= 10.0:
-                                shape.fill.fore_color.rgb = RGBColor(220, 38, 38)
-                            elif pct >= 5.0:
-                                shape.fill.fore_color.rgb = RGBColor(234, 88, 12)
-                            else:
-                                shape.fill.fore_color.rgb = RGBColor(217, 119, 6)
-
-                            shape.line.color.rgb = RGBColor(255, 255, 255)
-
-                            if n_chunk <= 6:
-                                title_font, val_font, sub_font = Pt(9.5), Pt(14), Pt(8.0)
-                            elif n_chunk <= 12:
-                                title_font, val_font, sub_font = Pt(8.0), Pt(11), Pt(7.0)
-                            else:
-                                title_font, val_font, sub_font = Pt(7.0), Pt(9.5), Pt(6.0)
-
-                            if val >= 1_000_000_000:
-                                val_str = f"Rp {val/1_000_000_000:.2f} M"
-                            elif val >= 1_000_000:
-                                val_str = f"Rp {val/1_000_000:.1f} Jt"
-                            elif val >= 1_000:
-                                val_str = f"{val:,.0f}"
-                            else:
-                                val_str = f"{val:.0f}"
-
-                            item_global_idx = start_num + i
-                            tf_tile = shape.text_frame
-                            tf_tile.word_wrap = True
-                            tf_tile.margin_left = Pt(3)
-                            tf_tile.margin_right = Pt(3)
-                            tf_tile.margin_top = Pt(2)
-                            tf_tile.margin_bottom = Pt(2)
-
-                            p0 = tf_tile.paragraphs[0]
-                            p0.text = f"⭐ PARETO #{item_global_idx}: {str(item.get('name', '-'))}"
-                            p0.font.size = title_font
-                            p0.font.bold = True
-                            p0.font.color.rgb = RGBColor(255, 255, 255)
-
-                            p1 = tf_tile.add_paragraph()
-                            p1.text = val_str
-                            p1.font.size = val_font
-                            p1.font.bold = True
-                            p1.font.color.rgb = RGBColor(255, 215, 0)
-
-                            p2 = tf_tile.add_paragraph()
-                            p2.text = f"{pct:.1f}% Kontribusi | {cum_pct:.1f}% Kum."
-                            p2.font.size = sub_font
-                            p2.font.color.rgb = RGBColor(248, 250, 252)
+                    # Clean up temporary PNG file
+                    try:
+                        os.remove(img_path)
+                    except Exception:
+                        pass
 
                     # SLIDE B: DETAIL DATA GRID TABLE SLIDE(S) FOR THIS DIMENSION (PARETO ONLY)
                     grid_dim = grid_by_dim.get(dim_key, [])
