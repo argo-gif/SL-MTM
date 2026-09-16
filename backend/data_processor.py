@@ -33,9 +33,11 @@ class MTMDataProcessor:
                     with open(self.db_path, 'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
                 print("Database decompression completed successfully.")
-            else:
+            elif os.path.exists(self.fallback_excel):
                 from build_dataset_db_v2 import build_db
                 build_db(xlsx_path=self.fallback_excel, db_path=self.db_path)
+            else:
+                print(f"Warning: Neither {gz_path} nor {self.fallback_excel} found.")
         return sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
 
 
