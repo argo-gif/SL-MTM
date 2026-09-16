@@ -1608,8 +1608,6 @@ class DashboardApp {
       } else {
         innerContent = '';
       }
-        innerContent = '';
-      }
 
       tile.innerHTML = innerContent;
 
