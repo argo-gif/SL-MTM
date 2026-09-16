@@ -1564,46 +1564,47 @@ class DashboardApp {
       const slActiveVal = (it.sl_active !== undefined ? it.sl_active : ((this.activeFilters.sl_type || 'sl_kirim') === 'sl_kirim' ? it.sl_kirim : it.sl_realisasi));
       const slColor = slLabel === 'SL Kirim' ? '#4ade80' : '#fbbf24';
 
-      if (rect.w >= 65 && rect.h >= 40) {
-        const badgeHtml = (isVital && rect.w >= 110 && rect.h >= 65)
-          ? `<span style="font-size: 0.85rem; font-weight: 800; color: #fde047; background: rgba(0,0,0,0.65); border: 1.5px solid rgba(234,179,8,0.9); padding: 0.2rem 0.6rem; border-radius: 5px; float: right; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">⭐ Pareto 80%</span>`
+      if (rect.w >= 110 && rect.h >= 75) {
+        const badgeHtml = isVital
+          ? `<span style="font-size: 0.65rem; font-weight: 800; color: #fde047; background: rgba(0,0,0,0.6); border: 1.5px solid rgba(234,179,8,0.8); padding: 0.12rem 0.4rem; border-radius: 4px; float: right;">⭐ Pareto 80%</span>`
           : ``;
-        const titleFontSize = isVital ? Math.min(32, Math.max(16, Math.floor(rect.w / 6))) : Math.min(26, Math.max(14, Math.floor(rect.w / 7)));
-        const valFontSize = isVital ? Math.min(36, Math.max(18, Math.floor(rect.w / 5))) : Math.min(30, Math.max(16, Math.floor(rect.w / 6)));
-        const subFontSize = isVital ? '13.5px' : '12px';
+        const titleFontSize = isVital ? Math.min(17, Math.max(12, Math.floor(rect.w / 9.5))) : Math.min(15, Math.max(11, Math.floor(rect.w / 11)));
+        const valFontSize = isVital ? Math.min(19, Math.max(14, Math.floor(rect.w / 7.5))) : Math.min(17, Math.max(12, Math.floor(rect.w / 9)));
+        const subFontSize = isVital ? '10.5px' : '10px';
 
         innerContent = `
           <div>
             ${badgeHtml}
-            <div style="font-size: ${titleFontSize}px; font-weight: 800; text-transform: uppercase; line-height: 1.2; word-break: break-word; color: ${style.text}; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">${it.name}</div>
+            <div style="font-size: ${titleFontSize}px; font-weight: 800; text-transform: uppercase; line-height: 1.2; word-break: break-word; color: ${style.text};">${it.name}</div>
           </div>
           <div style="margin-top: 0.2rem;">
-            <div style="font-size: ${valFontSize}px; font-weight: 800; color: ${style.valText}; text-shadow: 0 2px 6px rgba(0,0,0,0.6);">${valStr}</div>
-            <div style="font-size: ${subFontSize}; color: ${style.subText}; margin-top: 0.15rem; line-height: 1.35; font-weight: 600;">
-              <div>Kontribusi: <strong>${it.percentage.toFixed(1)}%</strong> <span style="opacity:0.9;">(Kum: ${it.cumulative_percentage.toFixed(1)}%)</span></div>
-              ${slActiveVal !== undefined ? `<div style="font-weight: 800; color: ${slColor}; margin-top: 1px;">${slLabel}: ${slActiveVal.toFixed(1)}%</div>` : ''}
+            <div style="font-size: ${valFontSize}px; font-weight: 800; color: ${style.valText}; text-shadow: 0 1px 4px rgba(0,0,0,0.4);">${valStr}</div>
+            <div style="font-size: ${subFontSize}; color: ${style.subText}; margin-top: 0.15rem; line-height: 1.3;">
+              <div>Kontribusi: <strong>${it.percentage.toFixed(1)}%</strong> <span style="opacity:0.85;">(Kum: ${it.cumulative_percentage.toFixed(1)}%)</span></div>
+              ${slActiveVal !== undefined ? `<div style="font-weight: 700; color: ${slColor}; margin-top: 1px;">${slLabel}: ${slActiveVal.toFixed(1)}%</div>` : ''}
             </div>
           </div>
         `;
-      } else if (rect.w >= 40 && rect.h >= 25) {
-        const titleFontSize = Math.min(18, Math.max(12, Math.floor(rect.w / 5)));
-        const valFontSize = Math.min(20, Math.max(13, Math.floor(rect.w / 4.5)));
+      } else if (rect.w >= 70 && rect.h >= 45) {
+        const titleFontSize = isVital ? Math.min(13, Math.max(10, Math.floor(rect.w / 7.5))) : Math.min(12, Math.max(9.5, Math.floor(rect.w / 8)));
+        const valFontSize = isVital ? Math.min(14, Math.max(11, Math.floor(rect.w / 6.5))) : Math.min(13, Math.max(10, Math.floor(rect.w / 7)));
 
         innerContent = `
           <div>
-            <div style="font-size: ${titleFontSize}px; font-weight: 800; text-transform: uppercase; line-height: 1.15; word-break: break-word; color: ${style.text}; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">${it.name}</div>
+            <div style="font-size: ${titleFontSize}px; font-weight: 800; text-transform: uppercase; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${style.text};">${it.name}</div>
           </div>
           <div>
-            <div style="font-size: ${valFontSize}px; font-weight: 800; color: ${style.valText}; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">${valStr}</div>
-            <div style="font-size: 11.5px; color: ${style.subText}; margin-top: 1px; font-weight: 700;">
+            <div style="font-size: ${valFontSize}px; font-weight: 800; color: ${style.valText};">${valStr}</div>
+            <div style="font-size: 9.5px; color: ${style.subText}; margin-top: 1px;">
               ${it.percentage.toFixed(1)}% ${slActiveVal !== undefined ? `| <strong style="color:${slColor};">${slLabel}: ${slActiveVal.toFixed(1)}%</strong>` : ''}
             </div>
           </div>
         `;
-      } else if (rect.w >= 25 && rect.h >= 18) {
+      } else if (rect.w >= 45 && rect.h >= 28) {
+        const shortName = it.name.length > 10 ? it.name.substring(0, 8) + '..' : it.name;
         innerContent = `
-          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${style.text};">${it.name}</div>
-          <div style="font-size: 10.5px; font-weight: 800; color: ${style.valText};">${valStr}</div>
+          <div style="font-size: ${Math.min(10.5, Math.max(8.5, Math.floor(rect.w / 6.5)))}px; font-weight: 700; text-transform: uppercase; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${style.text};">${shortName}</div>
+          <div style="font-size: 8.5px; font-weight: 700; color: ${style.valText}; opacity: 0.9;">${it.percentage.toFixed(1)}%</div>
         `;
       } else {
         innerContent = '';
