@@ -125,15 +125,20 @@ class MTMDataProcessor:
 
         def clean_vals(arr):
             if not arr: return []
-            if isinstance(arr, str): arr = [arr]
-            return [
-                v for v in arr 
-                if v and str(v).strip() != "" and str(v).upper() not in ["ALL", "SEMUA BULAN", "SEMUA JENIS MTM", "SEMUA CABANG", "SEMUA ALIAS", "SEMUA GRUP BRAND", "SEMUA PRODUK / ITEM", "SEMUA ALASAN", "SEMUA"]
-            ]
+            if isinstance(arr, (str, int, float)): arr = [arr]
+            res = []
+            for v in arr:
+                if v is None: continue
+                s = str(v).strip().upper()
+                if not s or s == "ALL" or s.startswith("SEMUA") or "ALL MONTHS" in s or "SEMUA BULAN" in s or "SEMUA CABANG" in s or "SEMUA ALIAS" in s or "SEMUA GRUP" in s or "SEMUA PRODUK" in s or "SEMUA ALASAN" in s:
+                    continue
+                res.append(str(v).strip())
+            return res
 
         def normalize_month(v):
+            if v is None: return None
             v_str = str(v).strip().upper()
-            if not v_str or v_str in ["ALL", "SEMUA BULAN", "SEMUA"]:
+            if not v_str or v_str == "ALL" or v_str.startswith("SEMUA") or "ALL MONTHS" in v_str:
                 return None
             if len(v_str) == 7 and v_str[4] == '-' and v_str[:4].isdigit() and v_str[5:].isdigit():
                 return v_str
@@ -324,12 +329,19 @@ class MTMDataProcessor:
     def get_monthly_trend(self, filters: Dict[str, Any], metric_type: str = "idr") -> List[Dict[str, Any]]:
         # Extract max month filter if specified
         max_month = None
-        if filters.get('months'):
-            valid_m = [m for m in filters['months'] if m and m != 'Semua Bulan']
+        raw_m = filters.get('months') or filters.get('month')
+        if raw_m:
+            if isinstance(raw_m, (str, int, float)): raw_m = [raw_m]
+            valid_m = []
+            for m in raw_m:
+                if not m: continue
+                s = str(m).strip().upper()
+                if not s or s == "ALL" or s.startswith("SEMUA") or "ALL MONTHS" in s:
+                    continue
+                if len(s) == 7 and s[4] == '-' and s[:4].isdigit() and s[5:].isdigit():
+                    valid_m.append(s)
             if valid_m:
                 max_month = max(valid_m)
-        elif filters.get('month') and filters['month'] != 'Semua Bulan':
-            max_month = filters['month']
 
         base_filters = {k: v for k, v in filters.items() if k not in ['month', 'months']}
         where_sql, params = self._build_where_clause(base_filters)
