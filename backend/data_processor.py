@@ -15,7 +15,7 @@ class MTMDataProcessor:
         if not db_path:
             if os.environ.get("VERCEL") or not os.access(base_dir, os.W_OK):
                 tmp_db = os.path.join("/tmp", "dataset.db")
-                db_path = default_db if os.path.exists(default_db) else tmp_db
+                db_path = default_db if (os.path.exists(default_db) and os.path.getsize(default_db) > 100000000) else tmp_db
             else:
                 db_path = default_db
 
@@ -23,15 +23,18 @@ class MTMDataProcessor:
         self.fallback_excel = fallback_excel if fallback_excel else os.path.join(root_dir, "uploaded_active_dataset.xlsx")
 
     def get_connection(self):
-        if not os.path.exists(self.db_path):
+        is_invalid = not os.path.exists(self.db_path) or os.path.getsize(self.db_path) < 100000000
+        if is_invalid:
             base_dir = os.path.dirname(os.path.abspath(__file__))
             gz_path = os.path.join(base_dir, "dataset.db.gz")
+            tmp_write = self.db_path + ".tmp"
             if os.path.exists(gz_path):
                 import gzip, shutil
                 print(f"Decompressing pre-built dataset {gz_path} to {self.db_path}...")
                 with gzip.open(gz_path, 'rb') as f_in:
-                    with open(self.db_path, 'wb') as f_out:
+                    with open(tmp_write, 'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
+                os.replace(tmp_write, self.db_path)
                 print("Database decompression completed successfully.")
             else:
                 try:
@@ -40,8 +43,9 @@ class MTMDataProcessor:
                     raw_url = "https://raw.githubusercontent.com/argo-gif/SL-MTM/main/backend/dataset.db.gz"
                     print(f"Downloading pre-built dataset from {raw_url}...")
                     req = urllib.request.urlopen(raw_url, context=ctx, timeout=35)
-                    with open(self.db_path, 'wb') as f_out:
+                    with open(tmp_write, 'wb') as f_out:
                         shutil.copyfileobj(gzip.GzipFile(fileobj=req), f_out)
+                    os.replace(tmp_write, self.db_path)
                     print("Downloaded and decompressed dataset successfully from GitHub raw.")
                 except Exception as ex_dl:
                     print(f"Cloud dataset download notice: {ex_dl}")
