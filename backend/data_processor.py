@@ -66,7 +66,7 @@ class MTMDataProcessor:
                         sub_filters[k] = v
 
             where_sql, params = self._build_where_clause(sub_filters)
-            db_col = 'reason_final' if target_field == 'reason' else ('item_display' if target_field == 'item' else target_field)
+            db_col = 'reason_final' if target_field == 'reason' else ('item_display' if target_field == 'item' else ('branch_display' if target_field == 'branch' else target_field))
             query = f"SELECT DISTINCT {db_col} FROM dataset {where_sql} AND {db_col} != '' ORDER BY {db_col};"
             cur.execute(query, params)
             return [r[0] for r in cur.fetchall()]
@@ -168,9 +168,28 @@ class MTMDataProcessor:
 
         valid_b = clean_vals(filters.get('branches')) or clean_vals(filters.get('branch'))
         if valid_b:
-            placeholders = ','.join(['?'] * len(valid_b))
-            where_clauses.append(f"branch IN ({placeholders})")
-            params.extend(valid_b)
+            displays = []
+            branches = []
+            rms = []
+            for v in valid_b:
+                v_str = str(v).strip()
+                displays.append(v_str)
+                if ' - ' in v_str:
+                    parts = v_str.split(' - ', 1)
+                    rms.append(parts[0].strip())
+                    branches.append(parts[1].strip())
+                else:
+                    branches.append(v_str)
+                    rms.append(v_str)
+
+            p_disp = ','.join(['?'] * len(displays))
+            p_br = ','.join(['?'] * len(branches))
+            p_rm = ','.join(['?'] * len(rms))
+
+            where_clauses.append(f"(branch_display IN ({p_disp}) OR branch IN ({p_br}) OR rm IN ({p_rm}))")
+            params.extend(displays)
+            params.extend(branches)
+            params.extend(rms)
 
         valid_a = clean_vals(filters.get('mtm_aliases')) or clean_vals(filters.get('mtm_alias'))
         if valid_a:
@@ -360,7 +379,7 @@ class MTMDataProcessor:
     def get_pareto_tree_maps(self, filters: Dict[str, Any], dimension: str, metric_type: str = "idr", unfulfill_only: bool = True) -> List[Dict[str, Any]]:
         dim_map = {
             'alasan': 'reason_final', 'mtm_alias': 'mtm_alias',
-            'cabang': 'branch', 'grup_brand': 'brand_group', 'item': 'item_name'
+            'cabang': 'branch_display', 'grup_brand': 'brand_group', 'item': 'item_name'
         }
         dim_col = dim_map.get(dimension.lower(), dimension)
 
@@ -442,7 +461,7 @@ class MTMDataProcessor:
     def get_detail_grid(self, filters: Dict[str, Any], dimension: str = "alasan", metric_type: str = "idr", limit: int = 500) -> List[Dict[str, Any]]:
         dim_map = {
             'alasan': 'reason_final', 'mtm_alias': 'mtm_alias',
-            'cabang': 'branch', 'grup_brand': 'brand_group', 'item': 'item_name'
+            'cabang': 'branch_display', 'grup_brand': 'brand_group', 'item': 'item_name'
         }
         dim_col = dim_map.get(dimension.lower(), 'reason_final')
 

@@ -75,6 +75,8 @@ def build_db(xlsx_path=None, db_path=None):
             month_num INTEGER,
             mtm_type TEXT,
             branch TEXT,
+            rm TEXT,
+            branch_display TEXT,
             mtm_alias TEXT,
             brand_group TEXT,
             product_code TEXT,
@@ -91,6 +93,12 @@ def build_db(xlsx_path=None, db_path=None):
             qty_order REAL
         )
     ''')
+
+    cols = [info[1] for info in cur.execute("PRAGMA table_info(dataset);").fetchall()]
+    if 'rm' not in cols:
+        cur.execute("ALTER TABLE dataset ADD COLUMN rm TEXT;")
+    if 'branch_display' not in cols:
+        cur.execute("ALTER TABLE dataset ADD COLUMN branch_display TEXT;")
 
     with zipfile.ZipFile(xlsx_path, 'r') as z:
         # 1. Parse Shared Strings
@@ -149,6 +157,7 @@ def build_db(xlsx_path=None, db_path=None):
                         if hu == 'DELIVERY_DATE' or hu == 'TGL_NP' or hu == 'TGL KIRIM': header_map[col_let] = 'delivery_date'
                         elif hu == 'JENIS MTM' or hu == 'JENIS_MTM': header_map[col_let] = 'mtm_type'
                         elif hu == 'BRANCH_NAME' or hu == 'CABANG': header_map[col_let] = 'branch'
+                        elif hu == 'RM' or hu == 'REGIONAL_MANAGER': header_map[col_let] = 'rm'
                         elif hu == 'MTM_ALIAS' or hu == 'MTM ALIAS': header_map[col_let] = 'mtm_alias'
                         elif hu == 'GROUP BRAND' or hu == 'GRUP BRAND' or hu == 'GROUP_BRAND': header_map[col_let] = 'brand_group'
                         elif hu == 'PRODUCT_CODE' or hu == 'KODE ITEM' or hu == 'KODE_ITEM': header_map[col_let] = 'product_code'
@@ -207,6 +216,16 @@ def build_db(xlsx_path=None, db_path=None):
 
                     mtm_type = str(rec.get('mtm_type') or 'Unclassified').strip()
                     branch = str(rec.get('branch') or 'Unclassified').strip()
+                    rm = str(rec.get('rm') or '').strip()
+                    branch_u = branch.upper()
+                    if 'SURABAYA 3' in branch_u or 'SURABAYA3' in branch_u or 'SBY 3' in branch_u:
+                        branch = 'SURABAYA 2 /BERBEK'
+                    elif 'KARAWANG' in branch_u or branch_u == 'KRW':
+                        branch = 'BEKASI'
+                    elif 'SINGKAWANG' in branch_u or branch_u == 'SKW':
+                        branch = 'PONTIANAK'
+
+                    branch_display = f"{rm} - {branch}" if (rm and rm.upper() != 'RM') else branch
                     mtm_alias = str(rec.get('mtm_alias') or 'Unclassified').strip()
                     brand_group = str(rec.get('brand_group') or 'Unclassified').strip()
                     p_code = str(rec.get('product_code') or '').strip()
@@ -214,7 +233,7 @@ def build_db(xlsx_path=None, db_path=None):
                     item_display = f"{p_code} - {item_name}" if p_code else item_name
 
                     batch.append((
-                        dt, month, yr_val, mn_val, mtm_type, branch, mtm_alias, brand_group, p_code, item_name, item_display,
+                        dt, month, yr_val, mn_val, mtm_type, branch, rm, branch_display, mtm_alias, brand_group, p_code, item_name, item_display,
                         rk, rr, reason_final, idr_k, idr_r, idr_p, qty_k, qty_r, qty_o
                     ))
                     total_rows += 1
@@ -222,10 +241,10 @@ def build_db(xlsx_path=None, db_path=None):
                     if len(batch) >= 20000:
                         cur.executemany('''
                             INSERT INTO dataset (
-                                delivery_date, month, year, month_num, mtm_type, branch, mtm_alias, brand_group, product_code, item_name, item_display,
+                                delivery_date, month, year, month_num, mtm_type, branch, rm, branch_display, mtm_alias, brand_group, product_code, item_name, item_display,
                                 reason_kirim, reason_realisasi, reason_final,
                                 idr_kirim, idr_realisasi, idr_pesan, qty_kirim, qty_realisasi, qty_order
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ''', batch)
                         conn.commit()
                         batch = []
@@ -236,10 +255,10 @@ def build_db(xlsx_path=None, db_path=None):
         if batch:
             cur.executemany('''
                 INSERT INTO dataset (
-                    delivery_date, month, year, month_num, mtm_type, branch, mtm_alias, brand_group, product_code, item_name, item_display,
+                    delivery_date, month, year, month_num, mtm_type, branch, rm, branch_display, mtm_alias, brand_group, product_code, item_name, item_display,
                     reason_kirim, reason_realisasi, reason_final,
                     idr_kirim, idr_realisasi, idr_pesan, qty_kirim, qty_realisasi, qty_order
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', batch)
             conn.commit()
 
@@ -249,6 +268,7 @@ def build_db(xlsx_path=None, db_path=None):
         cur.execute("CREATE INDEX IF NOT EXISTS idx_month_num ON dataset(month_num);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mtm_type ON dataset(mtm_type);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_branch ON dataset(branch);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_branch_display ON dataset(branch_display);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mtm_alias ON dataset(mtm_alias);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_brand_group ON dataset(brand_group);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_item_display ON dataset(item_display);")
@@ -354,6 +374,7 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
             if hu in ['PRODUCT_CODE', 'KODE_ITEM', 'ITEM_CODE', 'KODE_PRODUCT']: return 'product_code'
             if hu in ['PRODUCT_NAME', 'NAMA_ITEM', 'ITEM_NAME', 'NAMA_PRODUCT', 'DESKRIPSI']: return 'item_name'
             if hu in ['BRANCH_NAME', 'NAMA_CABANG', 'CABANG']: return 'branch'
+            if hu in ['RM', 'REGIONAL_MANAGER', 'REGION']: return 'rm'
             if hu in ['MTM_ALIAS', 'ALIAS_MTM', 'ALIAS']: return 'mtm_alias'
             if hu in ['JENIS_MTM', 'MTM_TYPE', 'TYPE_MTM', 'TYPE', 'JENIS']: return 'mtm_type'
             if hu in ['DELIVERY_DATE', 'REAL_DELIVERY_DATE', 'TGL_DELIVERY', 'TANGGAL_KIRIM', 'TGL_KIRIM', 'TANGGAL']: return 'delivery_date'
@@ -372,6 +393,7 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
             if 'PRODUCT' in hu and 'NAME' in hu: return 'item_name'
             if 'ITEM' in hu and 'NAME' in hu: return 'item_name'
             if 'BRANCH' in hu and 'NAME' in hu: return 'branch'
+            if hu == 'RM' or ('REGIONAL' in hu and 'MANAGER' in hu): return 'rm'
             if 'MTM' in hu and 'ALIAS' in hu: return 'mtm_alias'
             if 'MTM' in hu and 'TYPE' in hu: return 'mtm_type'
             if 'DELIVERY' in hu and 'DATE' in hu: return 'delivery_date'
@@ -433,6 +455,8 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
                 else:
                     mtm_type = 'Unclassified'
 
+            branch = str(rec.get('branch') or 'Unclassified').strip()
+            rm = str(rec.get('rm') or '').strip()
             branch_u = branch.upper()
             if 'SURABAYA 3' in branch_u or 'SURABAYA3' in branch_u or 'SBY 3' in branch_u:
                 branch = 'SURABAYA 2 /BERBEK'
@@ -440,13 +464,15 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
                 branch = 'BEKASI'
             elif 'SINGKAWANG' in branch_u or branch_u == 'SKW':
                 branch = 'PONTIANAK'
+
+            branch_display = f"{rm} - {branch}" if (rm and rm.upper() != 'RM') else branch
             brand_group = rec.get('brand_group', 'Unclassified').strip() or 'Unclassified'
             p_code = rec.get('product_code', '').strip()
             item_name = rec.get('item_name', 'Unclassified').strip() or 'Unclassified'
             item_display = f"{p_code} - {item_name}" if p_code else item_name
 
             rows.append((
-                dt, month, year, month_num, mtm_type, branch, mtm_alias, brand_group, p_code, item_name, item_display,
+                dt, month, year, month_num, mtm_type, branch, rm, branch_display, mtm_alias, brand_group, p_code, item_name, item_display,
                 rk, rr, reason_final, idr_k, idr_r, idr_p, qty_k, qty_r, qty_o
             ))
 
@@ -487,12 +513,12 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
 
     final_rows = []
     for r in rows:
-        r_dt, r_m, r_y, r_mn, m_type, br, m_alias, b_grp, p_code, item_n, item_disp, rk, rr, r_final, idr_k, idr_r, idr_p, qty_k, qty_r, qty_o = r
+        r_dt, r_m, r_y, r_mn, m_type, br, r_rm, br_disp, m_alias, b_grp, p_code, item_n, item_disp, rk, rr, r_final, idr_k, idr_r, idr_p, qty_k, qty_r, qty_o = r
         out_month = r_m if (r_m and len(r_m) >= 7) else target_month
         out_year = r_y if r_y else t_yr_int
         out_mnum = r_mn if r_mn else t_mnum_int
         final_rows.append((
-            r_dt, out_month, out_year, out_mnum, m_type, br, m_alias, b_grp, p_code, item_n, item_disp, rk, rr, r_final, idr_k, idr_r, idr_p, qty_k, qty_r, qty_o
+            r_dt, out_month, out_year, out_mnum, m_type, br, r_rm, br_disp, m_alias, b_grp, p_code, item_n, item_disp, rk, rr, r_final, idr_k, idr_r, idr_p, qty_k, qty_r, qty_o
         ))
 
     if not final_rows or len(final_rows) == 0:
@@ -519,6 +545,8 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
             month_num INTEGER,
             mtm_type TEXT,
             branch TEXT,
+            rm TEXT,
+            branch_display TEXT,
             mtm_alias TEXT,
             brand_group TEXT,
             product_code TEXT,
@@ -542,11 +570,17 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
         cur.execute("ALTER TABLE dataset ADD COLUMN year INTEGER;")
     if 'month_num' not in cols:
         cur.execute("ALTER TABLE dataset ADD COLUMN month_num INTEGER;")
+    if 'rm' not in cols:
+        cur.execute("ALTER TABLE dataset ADD COLUMN rm TEXT;")
+    if 'branch_display' not in cols:
+        cur.execute("ALTER TABLE dataset ADD COLUMN branch_display TEXT;")
 
     # Ensure B-tree indexes for instant month search & deletion
     cur.execute("CREATE INDEX IF NOT EXISTS idx_month ON dataset(month);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_year ON dataset(year);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_month_num ON dataset(month_num);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_branch ON dataset(branch);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_branch_display ON dataset(branch_display);")
 
     # Delete existing rows ONLY for targeted period
     cur.execute("DELETE FROM dataset WHERE month = ? OR (year = ? AND month_num = ?);", (target_month, t_yr_int, t_mnum_int))
@@ -555,10 +589,10 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
     # Insert verified rows for target_month
     cur.executemany('''
         INSERT INTO dataset (
-            delivery_date, month, year, month_num, mtm_type, branch, mtm_alias, brand_group, product_code, item_name, item_display,
+            delivery_date, month, year, month_num, mtm_type, branch, rm, branch_display, mtm_alias, brand_group, product_code, item_name, item_display,
             reason_kirim, reason_realisasi, reason_final,
             idr_kirim, idr_realisasi, idr_pesan, qty_kirim, qty_realisasi, qty_order
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', final_rows)
 
     conn.commit()
