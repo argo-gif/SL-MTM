@@ -299,50 +299,50 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
         sl_lbl = item.get("sl_label", "SL Kirim")
         sl_val = item.get("sl_active", item.get("sl_kirim", None))
 
-        # Tile text rendering with Multi-line Word Wrapping (NO TRUNCATION OR CLIPPING!)
-        if avail_w >= 110 and avail_h >= 75:
-            if is_vital:
-                init_title_size = max(34, min(58, avail_w // 6))
-                val_size = max(38, min(64, avail_w // 5))
-                sub_size = max(20, min(28, avail_w // 12))
-            else:
-                init_title_size = max(26, min(44, avail_w // 8))
-                val_size = max(28, min(48, avail_w // 7))
-                sub_size = max(16, min(22, avail_w // 14))
+        # Tile text rendering with automatic horizontal and vertical fitting (NO TRUNCATION OR CLIPPING!)
+        if avail_w >= 100 and avail_h >= 65:
+            init_title_size = max(14, min(24, int(avail_w // 11)))
+            val_size = max(16, min(28, int(avail_w // 9)))
+            sub_size = max(11, min(14, int(avail_w // 18)))
+
+            # Fit val_str horizontally
+            while val_size >= 12:
+                f_val = get_font(font_bold_path, val_size)
+                v_w = f_val.getlength(val_str) if hasattr(f_val, 'getlength') else len(val_str) * (val_size * 0.55)
+                if v_w <= avail_w - 4 or val_size <= 12:
+                    break
+                val_size -= 1
 
             f_val = get_font(font_bold_path, val_size)
             f_sub = get_font(font_bold_path if is_vital else font_reg_path, sub_size)
 
             lines = []
-            f_title = None
             title_size = init_title_size
+            wrap_w = avail_w - (badge_w + 4 if has_badge else 0)
 
-            while title_size >= 16.0:
+            while title_size >= 11:
                 f_title = get_font(font_bold_path, title_size)
-                wrap_w = avail_w - (badge_w + 6 if has_badge else 0)
-                lines = wrap_text_lines(f_title, name_str, wrap_w)
-
-                line_h = int(title_size * 1.25)
-                tot_title_h = len(lines) * line_h
-                tot_h = tot_title_h + val_size + (sub_size * 2) + 16
-
-                if tot_h <= avail_h or title_size <= 16.0:
+                lines = wrap_text_lines(f_title, name_str, max(wrap_w, avail_w * 0.6))
+                line_h = int(title_size * 1.2)
+                tot_h = (len(lines) * line_h) + int(val_size * 1.2) + (sub_size * 2) + 12
+                if tot_h <= avail_h or title_size <= 11:
                     break
-                title_size -= 1.0
+                title_size -= 1
 
+            f_title = get_font(font_bold_path, title_size)
             y_curr = pad
-            line_h = int(title_size * 1.25)
+            line_h = int(title_size * 1.2)
+
             for line in lines:
                 if y_curr + line_h > rh - pad - val_size - 4:
                     break
                 t_draw.text((pad, y_curr), line, fill=text_color, font=f_title)
                 y_curr += line_h
 
-            y_curr += 4
+            y_curr += 3
             t_draw.text((pad, y_curr), val_str, fill=val_color, font=f_val)
-            y_curr += int(val_size * 1.2) + 2
+            y_curr += int(val_size * 1.15) + 3
 
-            # Render Subtext lines on separate lines (NO HORIZONTAL CLIPPING!)
             if y_curr + sub_size <= rh - pad:
                 sub_txt1 = f"Kontribusi: {pct:.1f}% (Kum: {cum_pct:.1f}%)"
                 t_draw.text((pad, y_curr), sub_txt1, fill=sub_color, font=f_sub)
@@ -353,31 +353,36 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
                 sl_color = (74, 222, 128) if sl_lbl == 'SL Kirim' else (251, 191, 36)
                 t_draw.text((pad, y_curr), sub_txt2, fill=sl_color, font=f_sub)
 
-        elif avail_w >= 65 and avail_h >= 45:
-            if is_vital:
-                init_title_size = max(24, min(36, avail_w // 7))
-                val_size = max(26, min(40, avail_w // 6))
-                sub_size = 18
-            else:
-                init_title_size = max(20, min(30, avail_w // 9))
-                val_size = max(22, min(32, avail_w // 8))
-                sub_size = 15
+        elif avail_w >= 50 and avail_h >= 35:
+            init_title_size = max(11, min(18, int(avail_w // 10)))
+            val_size = max(12, min(20, int(avail_w // 8)))
+            sub_size = 11
+
+            while val_size >= 10:
+                f_val = get_font(font_bold_path, val_size)
+                v_w = f_val.getlength(val_str) if hasattr(f_val, 'getlength') else len(val_str) * (val_size * 0.55)
+                if v_w <= avail_w - 4 or val_size <= 10:
+                    break
+                val_size -= 1
 
             f_val = get_font(font_bold_path, val_size)
-            f_sub = get_font(font_bold_path if is_vital else font_reg_path, sub_size)
+            f_sub = get_font(font_reg_path, sub_size)
 
             title_size = init_title_size
             lines = []
-            while title_size >= 14.0:
+            while title_size >= 10:
                 f_title = get_font(font_bold_path, title_size)
                 lines = wrap_text_lines(f_title, name_str, avail_w)
-                tot_h = (len(lines) * int(title_size * 1.2)) + val_size + sub_size + 8
-                if tot_h <= avail_h or title_size <= 14.0:
+                line_h = int(title_size * 1.15)
+                tot_h = (len(lines) * line_h) + val_size + sub_size + 6
+                if tot_h <= avail_h or title_size <= 10:
                     break
-                title_size -= 0.5
+                title_size -= 1
 
+            f_title = get_font(font_bold_path, title_size)
             y_curr = pad
-            line_h = int(title_size * 1.2)
+            line_h = int(title_size * 1.15)
+
             for line in lines:
                 if y_curr + line_h > rh - pad - val_size:
                     break
@@ -392,22 +397,22 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
                 sl_color = (74, 222, 128) if sl_lbl == 'SL Kirim' else (251, 191, 36)
                 t_draw.text((pad, y_curr), f"{pct:.1f}% | {sl_lbl}: {float(sl_val):.1f}%", fill=sl_color, font=f_sub)
 
-        elif avail_w >= 40 and avail_h >= 25:
-            title_size = max(16, min(24, avail_w // 6))
+        elif avail_w >= 30 and avail_h >= 20:
+            title_size = max(10, min(14, int(avail_w // 7)))
             f_title = get_font(font_bold_path, title_size)
-            f_sub = get_font(font_reg_path, 14)
+            f_sub = get_font(font_reg_path, 10)
 
             lines = wrap_text_lines(f_title, name_str, avail_w)
             y_curr = pad
-            line_h = int(title_size * 1.15)
+            line_h = int(title_size * 1.1)
 
             for line in lines:
-                if y_curr + line_h > rh - pad - 14:
+                if y_curr + line_h > rh - pad - 10:
                     break
                 t_draw.text((pad, y_curr), line, fill=text_color, font=f_title)
                 y_curr += line_h
 
-            if y_curr + 14 <= rh - pad:
+            if y_curr + 10 <= rh - pad:
                 t_draw.text((pad, y_curr), f"{pct:.1f}%", fill=val_color, font=f_sub)
 
         canvas.paste(tile_img, (rx, ry))
