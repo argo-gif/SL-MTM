@@ -266,7 +266,7 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
         # Check Pareto badge availability
         has_badge = is_vital and avail_w >= 100 and avail_h >= 65
         badge_w, badge_h = 0, 0
-        f_badge = get_font(font_bold_path, 10)
+        f_badge = get_font(font_bold_path, 13)
 
         if has_badge:
             badge_text = "Pareto 80%"
@@ -275,9 +275,9 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
             elif hasattr(f_badge, 'getbbox'):
                 bw = f_badge.getbbox(badge_text)[2]
             else:
-                bw = len(badge_text) * 7
-            badge_w = bw + 22
-            badge_h = 18
+                bw = len(badge_text) * 8
+            badge_w = bw + 26
+            badge_h = 24
 
             bx = rw - pad - badge_w
             by = pad
@@ -285,16 +285,16 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
             t_draw.rectangle([bx, by, bx + badge_w, by + badge_h], fill=(0, 0, 0), outline=(234, 179, 8), width=1)
 
             # Draw star polygon
-            star_cx = bx + 10
-            star_cy = by + 9
+            star_cx = bx + 12
+            star_cy = by + 12
             star_pts = []
             for sp in range(10):
-                sr = 4.5 if sp % 2 == 0 else 2.0
+                sr = 5.5 if sp % 2 == 0 else 2.5
                 s_angle = sp * math.pi / 5 - math.pi / 2
                 star_pts.append((star_cx + sr * math.cos(s_angle), star_cy + sr * math.sin(s_angle)))
             t_draw.polygon(star_pts, fill=(253, 224, 71))
 
-            t_draw.text((bx + 18, by + 2), badge_text, fill=(253, 224, 71), font=f_badge)
+            t_draw.text((bx + 22, by + 3), badge_text, fill=(253, 224, 71), font=f_badge)
 
         sl_lbl = item.get("sl_label", "SL Kirim")
         sl_val = item.get("sl_active", item.get("sl_kirim", None))
@@ -302,13 +302,13 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
         # Tile text rendering with Multi-line Word Wrapping (NO TRUNCATION OR CLIPPING!)
         if avail_w >= 110 and avail_h >= 75:
             if is_vital:
-                init_title_size = max(13, min(22, avail_w // 8))
-                val_size = max(16, min(26, avail_w // 7))
-                sub_size = max(10, min(13, avail_w // 13))
+                init_title_size = max(22, min(38, avail_w // 10))
+                val_size = max(24, min(44, avail_w // 8))
+                sub_size = max(14, min(20, avail_w // 15))
             else:
-                init_title_size = max(11, min(16, avail_w // 11))
-                val_size = max(13, min(20, avail_w // 9))
-                sub_size = max(9, min(11, avail_w // 16))
+                init_title_size = max(18, min(30, avail_w // 12))
+                val_size = max(20, min(36, avail_w // 10))
+                sub_size = max(12, min(16, avail_w // 18))
 
             f_val = get_font(font_bold_path, val_size)
             f_sub = get_font(font_bold_path if is_vital else font_reg_path, sub_size)
@@ -317,7 +317,7 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
             f_title = None
             title_size = init_title_size
 
-            while title_size >= 9.5:
+            while title_size >= 14.0:
                 f_title = get_font(font_bold_path, title_size)
                 wrap_w = avail_w - (badge_w + 6 if has_badge else 0)
                 lines = wrap_text_lines(f_title, name_str, wrap_w)
@@ -326,7 +326,7 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
                 tot_title_h = len(lines) * line_h
                 tot_h = tot_title_h + val_size + (sub_size * 2) + 16
 
-                if tot_h <= avail_h or title_size <= 9.5:
+                if tot_h <= avail_h or title_size <= 14.0:
                     break
                 title_size -= 1.0
 
@@ -355,24 +355,24 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
 
         elif avail_w >= 65 and avail_h >= 45:
             if is_vital:
-                init_title_size = max(11, min(15, avail_w // 8))
-                val_size = max(12, min(16, avail_w // 7))
-                sub_size = 10
+                init_title_size = max(16, min(26, avail_w // 9))
+                val_size = max(18, min(30, avail_w // 8))
+                sub_size = 13
             else:
-                init_title_size = max(9.5, min(13, avail_w // 9))
-                val_size = max(11, min(14, avail_w // 8))
-                sub_size = 9
+                init_title_size = max(14, min(22, avail_w // 11))
+                val_size = max(16, min(24, avail_w // 9))
+                sub_size = 11
 
             f_val = get_font(font_bold_path, val_size)
             f_sub = get_font(font_bold_path if is_vital else font_reg_path, sub_size)
 
             title_size = init_title_size
             lines = []
-            while title_size >= 8.5:
+            while title_size >= 11.5:
                 f_title = get_font(font_bold_path, title_size)
                 lines = wrap_text_lines(f_title, name_str, avail_w)
                 tot_h = (len(lines) * int(title_size * 1.2)) + val_size + sub_size + 8
-                if tot_h <= avail_h or title_size <= 8.5:
+                if tot_h <= avail_h or title_size <= 11.5:
                     break
                 title_size -= 0.5
 
@@ -393,9 +393,9 @@ def generate_treemap_image(items: List[Dict[str, Any]], width_px: int = 1800, he
                 t_draw.text((pad, y_curr), f"{pct:.1f}% | {sl_lbl}: {float(sl_val):.1f}%", fill=sl_color, font=f_sub)
 
         elif avail_w >= 40 and avail_h >= 25:
-            title_size = max(8.5, min(10, avail_w // 7))
+            title_size = max(12, min(18, avail_w // 7))
             f_title = get_font(font_bold_path, title_size)
-            f_sub = get_font(font_reg_path, 8)
+            f_sub = get_font(font_reg_path, 10)
 
             lines = wrap_text_lines(f_title, name_str, avail_w)
             y_curr = pad
