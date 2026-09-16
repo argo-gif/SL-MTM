@@ -33,11 +33,23 @@ class MTMDataProcessor:
                     with open(self.db_path, 'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
                 print("Database decompression completed successfully.")
-            elif os.path.exists(self.fallback_excel):
-                from build_dataset_db_v2 import build_db
-                build_db(xlsx_path=self.fallback_excel, db_path=self.db_path)
             else:
-                print(f"Warning: Neither {gz_path} nor {self.fallback_excel} found.")
+                try:
+                    import urllib.request, ssl, gzip, shutil
+                    ctx = ssl._create_unverified_context()
+                    raw_url = "https://raw.githubusercontent.com/argo-gif/SL-MTM/main/backend/dataset.db.gz"
+                    print(f"Downloading pre-built dataset from {raw_url}...")
+                    req = urllib.request.urlopen(raw_url, context=ctx, timeout=35)
+                    with open(self.db_path, 'wb') as f_out:
+                        shutil.copyfileobj(gzip.GzipFile(fileobj=req), f_out)
+                    print("Downloaded and decompressed dataset successfully from GitHub raw.")
+                except Exception as ex_dl:
+                    print(f"Cloud dataset download notice: {ex_dl}")
+                    if os.path.exists(self.fallback_excel):
+                        from build_dataset_db_v2 import build_db
+                        build_db(xlsx_path=self.fallback_excel, db_path=self.db_path)
+                    else:
+                        print(f"Warning: Neither {gz_path}, remote raw, nor {self.fallback_excel} found.")
         return sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
 
 
