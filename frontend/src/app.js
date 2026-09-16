@@ -46,6 +46,7 @@ class DashboardApp {
     if (btnUpload) btnUpload.style.display = 'inline-flex';
 
     this.updateUserUI();
+    this.refreshDashboardData();
     this.loadFilterOptions();
   }
 
