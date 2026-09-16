@@ -5,9 +5,12 @@ class DashboardApp {
     this.authController = new AuthController();
     this.apiBaseUrl = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.startsWith('file')) ? '' : 'http://127.0.0.1:5000';
 
+    this.latestMonthDefault = '2026-09';
+    this.defaultMTMTypeDefault = 'KA';
+
     this.activeFilters = {
-      months: [],
-      month: '',
+      months: ['2026-09'],
+      month: '2026-09',
       mtm_types: ['KA'],
       mtm_type: 'KA',
       branches: [],
@@ -176,7 +179,7 @@ class DashboardApp {
 
     // Reset Filters
     document.getElementById('btnResetFilter')?.addEventListener('click', () => {
-      const defaultM = this.latestMonthDefault || '2026-08';
+      const defaultM = this.latestMonthDefault || '2026-09';
       const defaultT = this.defaultMTMTypeDefault || 'KA';
 
       this.activeFilters = {
@@ -648,7 +651,7 @@ class DashboardApp {
       const json = await res.json();
       if (res.ok && json.status === 'success') {
         const opts = json.data;
-        this.latestMonthDefault = opts.latest_month || '2026-08';
+        this.latestMonthDefault = opts.latest_month || '2026-09';
         this.defaultMTMTypeDefault = opts.default_mtm_type || 'KA';
 
         const txtLastUpdate = document.getElementById('txtLastUpdateDB');
