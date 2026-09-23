@@ -568,6 +568,10 @@ class DashboardApp {
       if (res.ok && json.status === 'success') {
         const opts: FilterOptions = json.data;
         this.availableMonths = opts.months || [];
+        const txtLastUpdate = document.getElementById('txtLastUpdateDB');
+        if (txtLastUpdate && (opts as any).last_update) {
+          txtLastUpdate.textContent = (opts as any).last_update;
+        }
         this.populateDropdown('filterMonth', opts.months, opts.latest_month);
         this.populateDropdown('filterMTMType', opts.mtm_types, opts.default_mtm_type);
         this.populateDropdown('filterBranch', opts.branches);

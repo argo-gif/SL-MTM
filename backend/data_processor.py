@@ -104,11 +104,11 @@ class MTMDataProcessor:
         latest_m = months[0] if months else "2026-08"
 
         import datetime
-        db_file = self.db_path if os.path.exists(self.db_path) else self.fallback_excel
         last_update_str = "-"
-        if os.path.exists(db_file):
-            mtime = os.path.getmtime(db_file)
-            last_update_str = datetime.datetime.fromtimestamp(mtime).strftime("%d/%m")
+        candidates = [p for p in [self.fallback_excel, self.db_path] if p and os.path.exists(p)]
+        if candidates:
+            latest_mtime = max(os.path.getmtime(p) for p in candidates)
+            last_update_str = datetime.datetime.fromtimestamp(latest_mtime).strftime("%d/%m")
 
         return {
             "months": months or ["2026-08"],
