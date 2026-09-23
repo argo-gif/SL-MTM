@@ -1102,7 +1102,7 @@ class DashboardApp {
     if (elRealisasi) elRealisasi.textContent = `${kpi.sl_realisasi.toFixed(1)}%`;
     if (elGap) {
       elGap.textContent = `${kpi.gap >= 0 ? '+' : ''}${kpi.gap.toFixed(1)}%`;
-      elGap.style.color = kpi.gap >= 0 ? '#4ADE80' : '#FF4D4D';
+      elGap.style.color = kpi.gap >= 0 ? '#15803D' : '#DC2626';
     }
 
     const progressKirim = document.getElementById('progressKirim');
@@ -1127,7 +1127,7 @@ class DashboardApp {
     }
     if (diffKirim) {
       diffKirim.textContent = `${diffK >= 0 ? '+' : ''}${diffK.toFixed(1)}% vs Target`;
-      diffKirim.style.color = diffK >= 0 ? '#4ADE80' : '#FF4D4D';
+      diffKirim.style.color = diffK >= 0 ? '#15803D' : '#DC2626';
     }
 
     const diffR = kpi.sl_realisasi - 85.0;
@@ -1142,7 +1142,7 @@ class DashboardApp {
     }
     if (diffRealisasi) {
       diffRealisasi.textContent = `${diffR >= 0 ? '+' : ''}${diffR.toFixed(1)}% vs Target`;
-      diffRealisasi.style.color = diffR >= 0 ? '#4ADE80' : '#FF4D4D';
+      diffRealisasi.style.color = diffR >= 0 ? '#15803D' : '#DC2626';
     }
 
     if (badgeGap) {
@@ -1165,11 +1165,11 @@ class DashboardApp {
 
     if (valGapDiffRK) {
       valGapDiffRK.textContent = this.formatMetricVal(kpi.gap_val_rk, metricType);
-      valGapDiffRK.style.color = (kpi.gap_val_rk || 0) >= 0 ? '#4ADE80' : '#EF4444';
+      valGapDiffRK.style.color = (kpi.gap_val_rk || 0) >= 0 ? '#15803D' : '#DC2626';
     }
     if (valGapDiffRP) {
       valGapDiffRP.textContent = this.formatMetricVal(kpi.gap_val_rp, metricType);
-      valGapDiffRP.style.color = (kpi.gap_val_rp || 0) >= 0 ? '#4ADE80' : '#EF4444';
+      valGapDiffRP.style.color = (kpi.gap_val_rp || 0) >= 0 ? '#15803D' : '#DC2626';
     }
   }
 
@@ -1243,7 +1243,7 @@ class DashboardApp {
       const barBg = isAboveTarget
         ? 'linear-gradient(180deg, #10B981 0%, #047857 100%)'
         : 'linear-gradient(180deg, #EF4444 0%, #991B1B 100%)';
-      const textColor = isAboveTarget ? '#4ADE80' : '#FCA5A5';
+      const textColor = isAboveTarget ? '#15803D' : '#DC2626';
 
       const strP = this.formatMetricVal(item.total_p, metricType);
       const strK = this.formatMetricVal(item.total_k, metricType);
@@ -1255,17 +1255,17 @@ class DashboardApp {
         <div style="font-size: 0.78rem; font-weight: 700; color: ${textColor}; margin-bottom: 0.25rem;">
           ${val.toFixed(1)}%
         </div>
-        <div style="width: 50%; max-width: 44px; height: ${heightPct * 1.1}px; background: ${barBg}; border-radius: 6px 6px 0 0; transition: height 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4);"></div>
-        <div style="font-size: 0.78rem; font-weight: 700; color: white; margin-top: 0.35rem; margin-bottom: 0.25rem;">${this.formatMonthLabel(item.month)}</div>
+        <div style="width: 50%; max-width: 44px; height: ${heightPct * 1.1}px; background: ${barBg}; border-radius: 6px 6px 0 0; transition: height 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+        <div style="font-size: 0.78rem; font-weight: 700; color: #1E293B; margin-top: 0.35rem; margin-bottom: 0.25rem;">${this.formatMonthLabel(item.month)}</div>
         
-        <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 0.35rem 0.45rem; width: 100%; font-size: 0.67rem; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
-          <div style="display:flex; justify-content:space-between; align-items:center; color:#94A3B8; white-space:nowrap;">
+        <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 0.35rem 0.45rem; width: 100%; font-size: 0.67rem; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+          <div style="display:flex; justify-content:space-between; align-items:center; color:#475569; white-space:nowrap;">
             <span>📋 Pesan:</span>
-            <strong style="color:white; font-weight:700; margin-left:4px;">${strP}</strong>
+            <strong style="color:#0F172A; font-weight:700; margin-left:4px;">${strP}</strong>
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; color:#94A3B8; white-space:nowrap;">
+          <div style="display:flex; justify-content:space-between; align-items:center; color:#475569; white-space:nowrap;">
             <span>${isSLKirim ? '🚚 Kirim:' : '✅ Realisasi:'}</span>
-            <strong style="color:white; font-weight:700; margin-left:4px;">${isSLKirim ? strK : strR}</strong>
+            <strong style="color:#0F172A; font-weight:700; margin-left:4px;">${isSLKirim ? strK : strR}</strong>
           </div>
         </div>
       `;
@@ -1424,11 +1424,11 @@ class DashboardApp {
     ];
 
     const minorPalettes = [
-      { bg: 'linear-gradient(135deg, #fdba74 0%, #fed7aa 100%)', text: '#7c2d12', valText: '#7c2d12', subText: 'rgba(124, 45, 18, 0.85)', border: '1.5px solid #ffffff' },
-      { bg: 'linear-gradient(135deg, #cbd5e1 0%, #e2e8f0 100%)', text: '#1e293b', valText: '#0f172a', subText: 'rgba(30, 41, 59, 0.85)', border: '1.5px solid #ffffff' },
-      { bg: 'linear-gradient(135deg, #a5f3fc 0%, #bae6fd 100%)', text: '#0369a1', valText: '#0369a1', subText: 'rgba(3, 105, 161, 0.85)', border: '1.5px solid #ffffff' },
-      { bg: 'linear-gradient(135deg, #ddd6fe 0%, #ede9fe 100%)', text: '#4c1d95', valText: '#4c1d95', subText: 'rgba(76, 29, 149, 0.85)', border: '1.5px solid #ffffff' },
-      { bg: 'linear-gradient(135deg, #fef08a 0%, #fef9c3 100%)', text: '#713f12', valText: '#713f12', subText: 'rgba(113, 63, 18, 0.85)', border: '1.5px solid #ffffff' }
+      { bg: 'linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%)', text: '#7C2D12', valText: '#9A3412', subText: '#431407', border: '1.5px solid #FB923C' },
+      { bg: 'linear-gradient(135deg, #E2E8F0 0%, #F1F5F9 100%)', text: '#0F172A', valText: '#1E293B', subText: '#334155', border: '1.5px solid #94A3B8' },
+      { bg: 'linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)', text: '#0369A1', valText: '#075985', subText: '#0C4A6E', border: '1.5px solid #38BDF8' },
+      { bg: 'linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%)', text: '#5B21B6', valText: '#4C1D95', subText: '#2E1065', border: '1.5px solid #8B5CF6' },
+      { bg: 'linear-gradient(135deg, #FEF9C3 0%, #FEF08A 100%)', text: '#713F12', valText: '#854D0E', subText: '#422006', border: '1.5px solid #EAB308' }
     ];
 
     if (index < mainPalettes.length) {
@@ -1562,7 +1562,7 @@ class DashboardApp {
       let innerContent = '';
       const slLabel = it.sl_label || ((this.activeFilters.sl_type || 'sl_kirim') === 'sl_kirim' ? 'SL Kirim' : 'SL Terima');
       const slActiveVal = (it.sl_active !== undefined ? it.sl_active : ((this.activeFilters.sl_type || 'sl_kirim') === 'sl_kirim' ? it.sl_kirim : it.sl_realisasi));
-      const slColor = slLabel === 'SL Kirim' ? '#4ade80' : '#fbbf24';
+      const slColor = slLabel === 'SL Kirim' ? '#047857' : '#B45309';
 
       if (rect.w >= 110 && rect.h >= 75) {
         const badgeHtml = isVital
@@ -1649,10 +1649,10 @@ class DashboardApp {
     if (!badge) return;
 
     if (this.treemapCrossFilter && this.treemapCrossFilter.name) {
-      badge.style.background = 'rgba(234, 179, 8, 0.2)';
-      badge.style.borderColor = '#EAB308';
-      badge.style.color = '#FDE047';
-      badge.innerHTML = `🔍 Treemap Cross-Filter: <strong>${this.treemapCrossFilter.name}</strong> <button id="btnResetTreemapFilter" style="margin-left: 8px; background: #DC2626; color: white; border: none; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">✕ Lepas Filter Treemap</button>`;
+      badge.style.background = '#FEF3C7';
+      badge.style.borderColor = '#F59E0B';
+      badge.style.color = '#92400E';
+      badge.innerHTML = `🔍 Treemap Cross-Filter: <strong>${this.treemapCrossFilter.name}</strong> <button id="btnResetTreemapFilter" style="margin-left: 8px; background: #DC2626; color: white; border: none; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">✕ Lepas Filter Treemap</button>`;
       badge.style.cursor = 'default';
       badge.onclick = null;
 
@@ -1749,19 +1749,19 @@ class DashboardApp {
 
       const isVital = r.is_vital;
       const statusBadge = isVital
-        ? `<span style="font-size: 0.7rem; font-weight: 700; color: #FDE047; background: rgba(220,38,38,0.25); border: 1px solid #F87171; padding: 0.15rem 0.45rem; border-radius: 4px;">⭐ Pareto 80%</span>`
-        : `<span style="font-size: 0.7rem; font-weight: 600; color: #94A3B8; background: rgba(255,255,255,0.05); padding: 0.15rem 0.45rem; border-radius: 4px;">Minor</span>`;
+        ? `<span style="font-size: 0.7rem; font-weight: 700; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; padding: 0.15rem 0.45rem; border-radius: 4px;">⭐ Pareto 80%</span>`
+        : `<span style="font-size: 0.7rem; font-weight: 600; color: #475569; background: #F1F5F9; border: 1px solid #CBD5E1; padding: 0.15rem 0.45rem; border-radius: 4px;">Minor</span>`;
 
       return `
         <tr>
           <td style="text-align: center; font-weight: 600; color: var(--text-muted);">${idx + 1}</td>
-          <td style="font-weight: 700; color: #FFFFFF;">${r.name}</td>
-          <td style="text-align: right; color: #CBD5E1;">${valP}</td>
-          <td style="text-align: right; color: #4ADE80;">${valK}</td>
-          <td style="text-align: right; color: #FBBF24;">${valR}</td>
-          <td style="text-align: right; font-weight: 800; color: #EF4444;">${valGap}</td>
-          <td style="text-align: center; font-weight: 700; color: ${r.sl_kirim >= 85 ? '#4ADE80' : '#EF4444'};">${r.sl_kirim.toFixed(1)}%</td>
-          <td style="text-align: center; font-weight: 700; color: ${r.sl_realisasi >= 85 ? '#4ADE80' : '#EF4444'};">${r.sl_realisasi.toFixed(1)}%</td>
+          <td style="font-weight: 700; color: #0F172A;">${r.name}</td>
+          <td style="text-align: right; color: #334155;">${valP}</td>
+          <td style="text-align: right; color: #047857;">${valK}</td>
+          <td style="text-align: right; color: #B45309;">${valR}</td>
+          <td style="text-align: right; font-weight: 800; color: #BE123C;">${valGap}</td>
+          <td style="text-align: center; font-weight: 700; color: ${r.sl_kirim >= 85 ? '#15803D' : '#DC2626'};">${r.sl_kirim.toFixed(1)}%</td>
+          <td style="text-align: center; font-weight: 700; color: ${r.sl_realisasi >= 85 ? '#15803D' : '#DC2626'};">${r.sl_realisasi.toFixed(1)}%</td>
           <td style="text-align: center;">${statusBadge}</td>
         </tr>
       `;
