@@ -273,8 +273,13 @@ def build_db(xlsx_path=None, db_path=None):
         cur.execute("CREATE INDEX IF NOT EXISTS idx_brand_group ON dataset(brand_group);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_item_display ON dataset(item_display);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_reason ON dataset(reason_final);")
+        cur.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT);")
+        if os.path.exists(xlsx_path):
+            import datetime
+            mtime = os.path.getmtime(xlsx_path)
+            dt_str = datetime.datetime.fromtimestamp(mtime).strftime("%d/%m/%Y")
+            cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('dataset_modified_date', ?);", (dt_str,))
         conn.commit()
-
 
         cur.execute("SELECT COUNT(*) FROM dataset;")
         db_cnt = cur.fetchone()[0]
@@ -594,6 +599,13 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
             idr_kirim, idr_realisasi, idr_pesan, qty_kirim, qty_realisasi, qty_order
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', final_rows)
+
+    cur.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT);")
+    if os.path.exists(xlsx_path):
+        import datetime
+        mtime = os.path.getmtime(xlsx_path)
+        dt_str = datetime.datetime.fromtimestamp(mtime).strftime("%d/%m/%Y")
+        cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('dataset_modified_date', ?);", (dt_str,))
 
     conn.commit()
     conn.close()

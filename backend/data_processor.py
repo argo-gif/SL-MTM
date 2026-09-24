@@ -105,10 +105,24 @@ class MTMDataProcessor:
 
         import datetime
         last_update_str = "-"
-        candidates = [p for p in [self.fallback_excel, self.db_path] if p and os.path.exists(p)]
-        if candidates:
-            latest_mtime = max(os.path.getmtime(p) for p in candidates)
-            last_update_str = datetime.datetime.fromtimestamp(latest_mtime).strftime("%d/%m")
+        try:
+            cur.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT);")
+            cur.execute("SELECT value FROM metadata WHERE key = 'dataset_modified_date';")
+            row = cur.fetchone()
+            if row and row[0]:
+                last_update_str = str(row[0])
+        except:
+            pass
+
+        if last_update_str == "-":
+            candidates = [p for p in [self.fallback_excel, self.db_path] if p and os.path.exists(p)]
+            if candidates:
+                latest_mtime = max(os.path.getmtime(p) for p in candidates)
+                last_update_str = datetime.datetime.fromtimestamp(latest_mtime).strftime("%d/%m")
+
+        if last_update_str.count('/') == 2:
+            parts = last_update_str.split('/')
+            last_update_str = f"{parts[0]}/{parts[1]}"
 
         return {
             "months": months or ["2026-08"],
