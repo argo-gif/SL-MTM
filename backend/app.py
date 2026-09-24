@@ -150,12 +150,49 @@ def upload_data():
             except: pass
 
         if res.get("status") == "success":
+            processor.load_data()
             return jsonify(res), 200
         else:
             return jsonify({"status": "error", "message": res.get("message", "Penolakan verifikasi data.")}), 400
     except Exception as ex:
         traceback.print_exc()
         return jsonify({"status": "error", "message": f"Gagal memproses upload: {str(ex)}"}), 500
+
+
+@app.route("/api/data/import-local", methods=["POST", "GET"])
+def import_local():
+    try:
+        upload_password = request.headers.get("X-Upload-Password", "") or request.args.get("password", "") or request.form.get("password", "")
+        if str(upload_password).strip() != "Adelle@0403":
+            return jsonify({"status": "error", "message": "Password Akses Upload salah! Masukkan password Adelle@0403."}), 401
+
+        target_month = request.args.get("target_month", "") or request.form.get("target_month", "") or request.headers.get("X-Target-Month", "")
+
+        root_dir = os.path.dirname(base_dir)
+        import glob
+        all_xlsx = [
+            f for f in glob.glob(os.path.join(root_dir, "*.xlsx"))
+            if not os.path.basename(f).startswith('~$')
+        ]
+
+        if not all_xlsx:
+            return jsonify({"status": "error", "message": "Tidak ditemukan file dataset (.xlsx) di direktori utama."}), 404
+
+        latest_xlsx = max(all_xlsx, key=os.path.getmtime)
+        target_db = processor.db_path
+
+        from build_dataset_db_v2 import ingest_month_data, build_db
+        if target_month:
+            res = ingest_month_data(xlsx_path=latest_xlsx, target_month=target_month, db_path=target_db)
+        else:
+            build_db(xlsx_path=latest_xlsx, db_path=target_db)
+            res = {"status": "success", "message": f"Database berhasil di-build ulang secara lokal dari berkas: {os.path.basename(latest_xlsx)}"}
+
+        processor.load_data()
+        return jsonify(res), 200
+    except Exception as ex:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": f"Gagal Fast-Sync lokal: {str(ex)}"}), 500
 
 
 @app.route("/api/export/ppt", methods=["POST"])
