@@ -213,20 +213,29 @@ class MTMDataProcessor:
                 displays.append(v_str)
                 if ' - ' in v_str:
                     parts = v_str.split(' - ', 1)
-                    rms.append(parts[0].strip())
                     branches.append(parts[1].strip())
                 else:
-                    branches.append(v_str)
-                    rms.append(v_str)
+                    if v_str.upper().startswith('RM') and len(v_str) <= 5:
+                        rms.append(v_str)
+                    else:
+                        branches.append(v_str)
 
-            p_disp = ','.join(['?'] * len(displays))
-            p_br = ','.join(['?'] * len(branches))
-            p_rm = ','.join(['?'] * len(rms))
+            conds = []
+            if displays:
+                p_disp = ','.join(['?'] * len(displays))
+                conds.append(f"branch_display IN ({p_disp})")
+                params.extend(displays)
+            if branches:
+                p_br = ','.join(['?'] * len(branches))
+                conds.append(f"branch IN ({p_br})")
+                params.extend(branches)
+            if rms:
+                p_rm = ','.join(['?'] * len(rms))
+                conds.append(f"rm IN ({p_rm})")
+                params.extend(rms)
 
-            where_clauses.append(f"(branch_display IN ({p_disp}) OR branch IN ({p_br}) OR rm IN ({p_rm}))")
-            params.extend(displays)
-            params.extend(branches)
-            params.extend(rms)
+            if conds:
+                where_clauses.append("(" + " OR ".join(conds) + ")")
 
         valid_a = clean_vals(filters.get('mtm_aliases')) or clean_vals(filters.get('mtm_alias'))
         if valid_a:
