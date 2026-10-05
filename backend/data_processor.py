@@ -354,28 +354,9 @@ class MTMDataProcessor:
         return self.get_detail_grid(filters, limit=1000)
 
     def get_monthly_trend(self, filters: Dict[str, Any], metric_type: str = "idr") -> List[Dict[str, Any]]:
-        # Extract max month filter if specified
-        max_month = None
-        raw_m = filters.get('months') or filters.get('month')
-        if raw_m:
-            if isinstance(raw_m, (str, int, float)): raw_m = [raw_m]
-            valid_m = []
-            for m in raw_m:
-                if not m: continue
-                s = str(m).strip().upper()
-                if not s or s == "ALL" or s.startswith("SEMUA") or "ALL MONTHS" in s:
-                    continue
-                if len(s) == 7 and s[4] == '-' and s[:4].isdigit() and s[5:].isdigit():
-                    valid_m.append(s)
-            if valid_m:
-                max_month = max(valid_m)
-
+        metric_type = filters.get('metric_type', metric_type)
         base_filters = {k: v for k, v in filters.items() if k not in ['month', 'months']}
         where_sql, params = self._build_where_clause(base_filters)
-
-        if max_month:
-            where_sql += " AND month <= ?" if "WHERE" in where_sql else " WHERE month <= ?"
-            params.append(max_month)
 
         conn = self.get_connection()
         cur = conn.cursor()

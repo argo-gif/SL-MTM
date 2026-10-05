@@ -1232,8 +1232,8 @@ class DashboardApp {
       const isAboveTarget = val >= 85.0;
 
       const barWrap = document.createElement('div');
-      barWrap.style.flex = '1';
-      barWrap.style.minWidth = '132px';
+      barWrap.style.flex = '1 1 0%';
+      barWrap.style.minWidth = '0';
       barWrap.style.display = 'flex';
       barWrap.style.flexDirection = 'column';
       barWrap.style.alignItems = 'center';
@@ -1252,20 +1252,20 @@ class DashboardApp {
       const isSLKirim = (metricKey === 'sl_kirim');
 
       barWrap.innerHTML = `
-        <div style="font-size: 0.78rem; font-weight: 700; color: ${textColor}; margin-bottom: 0.25rem;">
+        <div style="font-size: 0.72rem; font-weight: 700; color: ${textColor}; margin-bottom: 0.2rem; white-space: nowrap;">
           ${val.toFixed(1)}%
         </div>
-        <div style="width: 50%; max-width: 44px; height: ${heightPct * 1.1}px; background: ${barBg}; border-radius: 6px 6px 0 0; transition: height 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
-        <div style="font-size: 0.78rem; font-weight: 700; color: #1E293B; margin-top: 0.35rem; margin-bottom: 0.25rem;">${this.formatMonthLabel(item.month)}</div>
+        <div style="width: 60%; max-width: 38px; height: ${heightPct * 1.1}px; background: ${barBg}; border-radius: 5px 5px 0 0; transition: height 0.3s ease; box-shadow: 0 3px 8px rgba(0,0,0,0.15);"></div>
+        <div style="font-size: 0.72rem; font-weight: 700; color: #1E293B; margin-top: 0.3rem; margin-bottom: 0.2rem; white-space: nowrap;">${this.formatMonthLabel(item.month)}</div>
         
-        <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 0.35rem 0.45rem; width: 100%; font-size: 0.67rem; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
-          <div style="display:flex; justify-content:space-between; align-items:center; color:#475569; white-space:nowrap;">
-            <span>📋 Pesan:</span>
-            <strong style="color:#0F172A; font-weight:700; margin-left:4px;">${strP}</strong>
+        <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 5px; padding: 0.22rem 0.25rem; width: 100%; font-size: 0.62rem; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); text-align: center;">
+          <div style="display:flex; flex-direction:column; align-items:center; color:#475569; line-height: 1.1;">
+            <span style="font-size: 0.58rem; color: #64748B;">Pesan</span>
+            <strong style="color:#0F172A; font-weight:700;">${strP}</strong>
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; color:#475569; white-space:nowrap;">
-            <span>${isSLKirim ? '🚚 Kirim:' : '✅ Realisasi:'}</span>
-            <strong style="color:#0F172A; font-weight:700; margin-left:4px;">${isSLKirim ? strK : strR}</strong>
+          <div style="display:flex; flex-direction:column; align-items:center; color:#475569; line-height: 1.1; margin-top: 2px; padding-top: 2px; border-top: 1px dashed #E2E8F0;">
+            <span style="font-size: 0.58rem; color: #64748B;">${isSLKirim ? 'Kirim' : 'Realisasi'}</span>
+            <strong style="color:#0F172A; font-weight:700;">${isSLKirim ? strK : strR}</strong>
           </div>
         </div>
       `;
