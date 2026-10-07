@@ -355,8 +355,37 @@ class MTMDataProcessor:
 
     def get_monthly_trend(self, filters: Dict[str, Any], metric_type: str = "idr") -> List[Dict[str, Any]]:
         metric_type = filters.get('metric_type', metric_type)
+        
+        # Determine max month from month/months filter if provided (up to selected month)
+        m_raw = filters.get('months') or filters.get('month')
+        max_month = None
+        if m_raw:
+            if isinstance(m_raw, (str, int, float)):
+                m_list = [m_raw]
+            else:
+                m_list = list(m_raw)
+            
+            valid_m = []
+            for m_item in m_list:
+                s_item = str(m_item).strip().upper()
+                if not s_item or s_item == "ALL" or s_item.startswith("SEMUA") or "ALL MONTHS" in s_item:
+                    continue
+                _, temp_params = self._build_where_clause({'months': [m_item]})
+                if temp_params:
+                    valid_m.extend(temp_params)
+            
+            if valid_m:
+                max_month = max(valid_m)
+
         base_filters = {k: v for k, v in filters.items() if k not in ['month', 'months']}
         where_sql, params = self._build_where_clause(base_filters)
+
+        if max_month:
+            if "WHERE" in where_sql:
+                where_sql += " AND month <= ?"
+            else:
+                where_sql += " WHERE month <= ?"
+            params.append(max_month)
 
         conn = self.get_connection()
         cur = conn.cursor()
