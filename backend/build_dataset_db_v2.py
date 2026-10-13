@@ -103,12 +103,12 @@ def build_db(xlsx_path=None, db_path=None):
     with zipfile.ZipFile(xlsx_path, 'r') as z:
         # 1. Parse Shared Strings
         print("Reading sharedStrings.xml...", flush=True)
-        ss_file = z.open('xl/sharedStrings.xml')
         shared_strings = []
-        for event, elem in ET.iterparse(ss_file, events=('end',)):
-            if elem.tag.endswith('t'):
-                shared_strings.append(elem.text or '')
-                elem.clear()
+        with z.open('xl/sharedStrings.xml') as ss_file:
+            for event, elem in ET.iterparse(ss_file, events=('end',)):
+                if elem.tag.endswith('si'):
+                    shared_strings.append(''.join(elem.itertext()))
+                    elem.clear()
         print(f"Loaded {len(shared_strings):,} shared strings in {time.time() - start:.2f}s", flush=True)
 
         # 2. Parse Sheet1
@@ -154,7 +154,7 @@ def build_db(xlsx_path=None, db_path=None):
                     print("Row 1 Headers:", row_cells, flush=True)
                     for col_let, val in row_cells.items():
                         hu = str(val).upper().strip()
-                        if hu == 'DELIVERY_DATE' or hu == 'TGL_NP' or hu == 'TGL KIRIM': header_map[col_let] = 'delivery_date'
+                        if hu in ['DELIVERY_DATE', 'TGL KIRIM']: header_map[col_let] = 'delivery_date'
                         elif hu == 'JENIS MTM' or hu == 'JENIS_MTM': header_map[col_let] = 'mtm_type'
                         elif hu == 'BRANCH_NAME' or hu == 'CABANG': header_map[col_let] = 'branch'
                         elif hu == 'RM' or hu == 'REGIONAL_MANAGER': header_map[col_let] = 'rm'
@@ -170,6 +170,13 @@ def build_db(xlsx_path=None, db_path=None):
                         elif hu == 'QTY_DELIVERY_IN_SMALLEST_UNIT' or hu == 'QTY KIRIM': header_map[col_let] = 'qty_kirim'
                         elif hu == 'QTY_REALISASI': header_map[col_let] = 'qty_realisasi'
                         elif hu == 'QTY_ORDER_IN_SMALLEST_UNIT' or hu == 'QTY ORDER': header_map[col_let] = 'qty_order'
+
+                    if 'delivery_date' not in header_map.values():
+                        for col_let, val in row_cells.items():
+                            hu = str(val).upper().strip()
+                            if hu == 'TGL_NP':
+                                header_map[col_let] = 'delivery_date'
+                                break
 
                     print("Header Map:", header_map, flush=True)
                 else:
@@ -287,6 +294,18 @@ def build_db(xlsx_path=None, db_path=None):
 
     conn.close()
 
+    gz_path = os.path.join(base_dir, "dataset.db.gz")
+    print(f"Compressing SQLite database to {gz_path}...", flush=True)
+    import gzip, shutil
+    tmp_gz = gz_path + ".tmp"
+    with open(db_path, 'rb') as f_in:
+        with gzip.open(tmp_gz, 'wb', compresslevel=6) as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    if os.path.exists(gz_path):
+        os.remove(gz_path)
+    os.rename(tmp_gz, gz_path)
+    print(f"Compressed dataset.db.gz generated successfully ({os.path.getsize(gz_path):,} bytes).", flush=True)
+
 
 MONTH_NAME_MAP = {
     'januari': 1, 'january': 1, 'jan': 1,
@@ -341,12 +360,14 @@ def ingest_month_data(xlsx_path, target_month, target_year=None, target_month_nu
     year_counts = {}
 
     with zipfile.ZipFile(xlsx_path, 'r') as z:
-        # 1. Parse Shared Strings using ultra-fast regex
+        # 1. Parse Shared Strings using iterparse on si elements
         ss = []
         if 'xl/sharedStrings.xml' in z.namelist():
-            ss_bytes = z.read('xl/sharedStrings.xml')
-            ss_matches = re.findall(b'<t[^>]*>(.*?)</t>', ss_bytes)
-            ss = [m.decode('utf-8', errors='ignore') for m in ss_matches]
+            with z.open('xl/sharedStrings.xml') as ss_file:
+                for event, elem in ET.iterparse(ss_file, events=('end',)):
+                    if elem.tag.endswith('si'):
+                        ss.append(''.join(elem.itertext()))
+                        elem.clear()
 
         # 2. Parse Sheet XML using Expat C parser
         sheet_path = 'xl/worksheets/sheet1.xml'

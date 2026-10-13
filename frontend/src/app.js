@@ -668,15 +668,18 @@ class DashboardApp {
         }
 
         // 1. Set active filters first so populateDropdown sees selected values
+        const latestM = opts.latest_month || (opts.months && opts.months.length > 0 ? opts.months[0] : '2026-10');
+        const defaultMTM = opts.default_mtm_type || this.defaultMTMTypeDefault;
+        this.latestMonthDefault = latestM;
         this.availableMonths = opts.months || [];
-        this.activeFilters.months = [this.latestMonthDefault];
-        this.activeFilters.month = this.latestMonthDefault;
-        this.activeFilters.mtm_types = [this.defaultMTMTypeDefault];
-        this.activeFilters.mtm_type = this.defaultMTMTypeDefault;
+        this.activeFilters.months = [latestM];
+        this.activeFilters.month = latestM;
+        this.activeFilters.mtm_types = [defaultMTM];
+        this.activeFilters.mtm_type = defaultMTM;
 
         // 2. Populate dropdowns
-        this.populateDropdown('filterMonth', opts.months, this.latestMonthDefault);
-        this.populateDropdown('filterMTMType', opts.mtm_types, this.defaultMTMTypeDefault);
+        this.populateDropdown('filterMonth', opts.months, latestM);
+        this.populateDropdown('filterMTMType', opts.mtm_types, defaultMTM);
         this.populateDropdown('filterBranch', opts.branches);
         this.populateDropdown('filterAlias', opts.mtm_aliases);
         this.populateDropdown('filterBrandGroup', opts.brand_groups);

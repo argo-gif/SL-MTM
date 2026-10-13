@@ -18,6 +18,10 @@ except Exception as e:
 
 
 class MTMAPIHandler(BaseHTTPRequestHandler):
+    def address_string(self):
+        # Prevent slow reverse DNS lookups on Windows local environments
+        return self.client_address[0]
+
     def _send_cors_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -26,10 +30,12 @@ class MTMAPIHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self._send_cors_headers()
+        self.send_header('Connection', 'close')
         self.end_headers()
 
-    def _send_json(self, data, status_code=200):
+    def _send_json(self, data, status_code=200, head_only=False):
         try:
+            self.close_connection = True
             body = json.dumps(data).encode('utf-8')
             self.send_response(status_code)
             self._send_cors_headers()
@@ -37,50 +43,70 @@ class MTMAPIHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Connection', 'close')
             self.end_headers()
-            self.wfile.write(body)
-            self.wfile.flush()
+            if not head_only:
+                self.wfile.write(body)
+                self.wfile.flush()
         except Exception as e:
             print("Socket response notice:", e)
 
-    def do_GET(self):
+    def do_HEAD(self):
+        self.do_GET(head_only=True)
+
+    def do_GET(self, head_only=False):
         try:
             parsed = urlparse(self.path)
             path = parsed.path
             
             if path == '/api/health':
-                self._send_json({"status": "ok", "service": "SL MTM Analytics Backend (Standalone)"})
+                self._send_json({"status": "ok", "service": "SL MTM Analytics Backend (Standalone)"}, head_only=head_only)
             elif path == '/api/data/filters':
                 parsed_qs = parse_qs(parsed.query)
                 filters = {}
                 for k, v in parsed_qs.items():
                     filters[k] = v[0] if len(v) == 1 else v
                 options = processor.get_filter_options(filters)
-                self._send_json({"status": "success", "data": options})
+                self._send_json({"status": "success", "data": options}, head_only=head_only)
             else:
                 clean_p = path.lstrip('/')
-                file_target = 'frontend/index.html' if path in ['/', '/index.html'] else os.path.join('frontend', clean_p)
-                if not os.path.exists(file_target):
-                    file_target = clean_p
+                backend_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(backend_dir)
+                frontend_dir = os.path.join(project_root, 'frontend')
+
+                if path in ['/', '/index.html', '']:
+                    file_target = os.path.join(frontend_dir, 'index.html')
+                else:
+                    file_target = os.path.join(frontend_dir, clean_p)
+                    if not os.path.exists(file_target):
+                        file_target = os.path.join(project_root, clean_p)
                 
                 if os.path.exists(file_target) and os.path.isfile(file_target):
                     content_type = 'text/html'
-                    if file_target.endswith('.css'): content_type = 'text/css'
-                    elif file_target.endswith('.js'): content_type = 'application/javascript'
-                    elif file_target.endswith('.jpeg') or file_target.endswith('.jpg'): content_type = 'image/jpeg'
-                    elif file_target.endswith('.png'): content_type = 'image/png'
+                    ext = os.path.splitext(file_target)[1].lower()
+                    if ext == '.css': content_type = 'text/css'
+                    elif ext == '.js': content_type = 'application/javascript'
+                    elif ext in ['.jpeg', '.jpg']: content_type = 'image/jpeg'
+                    elif ext == '.png': content_type = 'image/png'
+                    elif ext == '.svg': content_type = 'image/svg+xml'
+                    elif ext == '.ico': content_type = 'image/x-icon'
+                    elif ext == '.json': content_type = 'application/json'
+                    elif ext in ['.woff', '.woff2']: content_type = f'font/{ext[1:]}'
+
                     with open(file_target, 'rb') as f:
                         content_bytes = f.read()
+                    self.close_connection = True
                     self.send_response(200)
                     self._send_cors_headers()
                     self.send_header('Content-Type', content_type)
                     self.send_header('Content-Length', str(len(content_bytes)))
+                    self.send_header('Connection', 'close')
                     self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                     self.send_header('Pragma', 'no-cache')
                     self.send_header('Expires', '0')
                     self.end_headers()
-                    self.wfile.write(content_bytes)
+                    if not head_only:
+                        self.wfile.write(content_bytes)
                 else:
-                    self._send_json({"status": "error", "message": "File or endpoint not found"}, 404)
+                    self._send_json({"status": "error", "message": "File or endpoint not found"}, 404, head_only=head_only)
         except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
             pass
         except Exception as e:
@@ -364,11 +390,13 @@ class MTMAPIHandler(BaseHTTPRequestHandler):
                     if os.path.exists(output_file):
                         with open(output_file, 'rb') as f:
                             ppt_bytes = f.read()
+                        self.close_connection = True
                         self.send_response(200)
                         self._send_cors_headers()
                         self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
                         self.send_header('Content-Disposition', 'attachment; filename="Laporan_Service_Level_MTM.pptx"')
                         self.send_header('Content-Length', str(len(ppt_bytes)))
+                        self.send_header('Connection', 'close')
                         self.end_headers()
                         self.wfile.write(ppt_bytes)
                     else:
